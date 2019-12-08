@@ -69,6 +69,9 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> T getProxy(Invoker<T> invoker) throws RpcException {
+
+        //关键这里的invoker是什么东西，包含哪些内容？？
+        System.out.println("========获取动态代理类=========="+invoker.getClass());
         T proxy = proxyFactory.getProxy(invoker);
         if (GenericService.class != invoker.getInterface()) {
             URL url = invoker.getUrl();

@@ -146,6 +146,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             }
         }
 
+        //负载均衡查找
         Invoker<T> invoker = doSelect(loadbalance, invocation, invokers, selected);
 
         if (sticky) {
@@ -163,6 +164,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         if (invokers.size() == 1) {
             return invokers.get(0);
         }
+
         Invoker<T> invoker = loadbalance.select(invokers, getUrl(), invocation);
 
         //If the `invoker` is in the  `selected` or invoker is unavailable && availablecheck is true, reselect.
@@ -241,6 +243,8 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
 
     @Override
     public Result invoke(final Invocation invocation) throws RpcException {
+
+        System.out.println("=======AbstractClusterInvoker#invoke===========");
         checkWhetherDestroyed();
 
         // binding attachments into invocation.
@@ -249,9 +253,15 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             ((RpcInvocation) invocation).addAttachments(contextAttachments);
         }
 
+
+         //进入目录服务
         List<Invoker<T>> invokers = list(invocation);
+
+        System.out.println("=======负载均衡===========");
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
+
+        //FailoverClusterInvoker#doInvoke
         return doInvoke(invocation, invokers, loadbalance);
     }
 

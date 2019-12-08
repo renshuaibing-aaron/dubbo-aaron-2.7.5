@@ -142,6 +142,8 @@ public class ZookeeperRegistry extends FailbackRegistry {
 
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
+
+        System.out.println("=================ZookeeperRegistry#doSubscribe==========");
         try {
             if (ANY_VALUE.equals(url.getServiceInterface())) {
                 String root = toRootPath();

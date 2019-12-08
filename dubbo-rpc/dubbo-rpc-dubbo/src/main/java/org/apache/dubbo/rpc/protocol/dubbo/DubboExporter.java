@@ -27,11 +27,18 @@ import java.util.Map;
  */
 public class DubboExporter<T> extends AbstractExporter<T> {
 
+    //serviceKey: group/path:version:port
     private final String key;
 
+    /**
+     * 注意：exporterMap 对象实际上持有的是 AbstractProtocol 中的 exporterMap 对象引用
+     * key: serviceKey
+     * value: 具体的 Exporter 实例，eg. DubboExporter
+     */
     private final Map<String, Exporter<?>> exporterMap;
 
     public DubboExporter(Invoker<T> invoker, String key, Map<String, Exporter<?>> exporterMap) {
+        // 存储该 DubboExporter 实例管理的 Invoker 实例
         super(invoker);
         this.key = key;
         this.exporterMap = exporterMap;

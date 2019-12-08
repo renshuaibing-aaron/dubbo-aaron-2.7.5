@@ -28,17 +28,26 @@ import org.apache.dubbo.demo.DemoService;
 /**
  * @author renshuaibing
  */
-public class ConsumerApplication {
+public class ConsumerApplication
+{
 
+    /**
+     * 配置加载
+     * 创建invoker
+     * 创建服务接口代理类
+     * @param args
+     */
     public static void main(String[] args) {
         ReferenceConfig<DemoService> reference = new ReferenceConfig<>();
         reference.setInterface(DemoService.class);
 
 
+        RegistryConfig registryConfig = new RegistryConfig("zookeeper://127.0.0.1:2181");
+
         DubboBootstrap bootstrap = DubboBootstrap.getInstance();
         bootstrap
                 .application(new ApplicationConfig("dubbo-demo-api-consumer"))
-                .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
+                .registry(registryConfig)
                 .reference(reference)
                 .start();
 
@@ -48,6 +57,7 @@ public class ConsumerApplication {
        // DemoService demoService = ReferenceConfigCache.getCache().get(reference);
 
 
+        System.out.println("====执行方法调用==demoService.sayHello==================");
         String message = demoService.sayHello("dubbo");
 
 

@@ -86,6 +86,7 @@ import static org.apache.dubbo.rpc.cluster.Constants.ROUTER_KEY;
 
 
 /**
+ * 动态目录 实现NotifyListener接口 服务变更会通知这个类实现
  * RegistryDirectory
  */
 public class RegistryDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
@@ -265,6 +266,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      */
     // TODO: 2017/8/31 FIXME The thread pool should be used to refresh the address, otherwise the task may be accumulated.
     private void refreshInvoker(List<URL> invokerUrls) {
+        logger.info("===========刷新invoker列表=========refreshInvoker");
         Assert.notNull(invokerUrls, "invokerUrls should not be null");
 
         if (invokerUrls.size() == 1
@@ -585,6 +587,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
 
         List<Invoker<T>> invokers = null;
+
+        System.out.println("======查找路由==========");
         try {
             // Get invokers from cache, only runtime routers will be executed.
             invokers = routerChain.route(getConsumerUrl(), invocation);

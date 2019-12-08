@@ -60,6 +60,8 @@ public class Exchangers {
     }
 
     public static ExchangeServer bind(URL url, ExchangeHandler handler) throws RemotingException {
+
+        System.out.println("======信息交换层==========");
         if (url == null) {
             throw new IllegalArgumentException("url == null");
         }
@@ -115,6 +117,7 @@ public class Exchangers {
     }
 
     public static Exchanger getExchanger(String type) {
+
         return ExtensionLoader.getExtensionLoader(Exchanger.class).getExtension(type);
     }
 

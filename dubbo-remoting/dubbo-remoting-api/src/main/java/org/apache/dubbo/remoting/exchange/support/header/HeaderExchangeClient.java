@@ -122,6 +122,8 @@ public class HeaderExchangeClient implements ExchangeClient {
 
     @Override
     public void send(Object message, boolean sent) throws RemotingException {
+
+        System.out.println("======发送消息============");
         channel.send(message, sent);
     }
 

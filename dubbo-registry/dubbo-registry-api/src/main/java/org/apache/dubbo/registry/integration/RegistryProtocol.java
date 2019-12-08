@@ -110,6 +110,9 @@ import static org.apache.dubbo.rpc.cluster.Constants.WEIGHT_KEY;
 
 /**
  * RegistryProtocol
+ * 其他具体 Protocol（eg. DubboProtocol）的 AOP 类
+ * 首先会调用具体 Protocol#export(...)
+ * 之后获取 Registry，然后进行注册，最后监听 override 数据。（这一步的三个操作就是 AOP 的目的）
  */
 public class RegistryProtocol implements Protocol {
     public static final String[] DEFAULT_REGISTER_PROVIDER_KEYS = {
@@ -130,6 +133,7 @@ public class RegistryProtocol implements Protocol {
     //providerurl <--> exporter
     private final ConcurrentMap<String, ExporterChangeableWrapper<?>> bounds = new ConcurrentHashMap<>();
     private Cluster cluster;
+    // 具体协议
     private Protocol protocol;
     private RegistryFactory registryFactory;
     private ProxyFactory proxyFactory;
@@ -201,14 +205,20 @@ public class RegistryProtocol implements Protocol {
 
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
         //export invoker
+        //// 1. 做具体的 Protocol 的暴露操作
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
+        // 2. 获取注册中心
         final Registry registry = getRegistry(originInvoker);
+
+        //获得要注册的链接，也就是真正的要暴露的服务
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
+
         //to judge if we need to delay publish
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
+            // 3. 注册
             register(registryUrl, registeredProviderUrl);
         }
 
@@ -234,6 +244,8 @@ public class RegistryProtocol implements Protocol {
 
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
             Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);
+
+            // 调用具体 Protocol 暴露服务
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
         });
     }
@@ -386,20 +398,40 @@ public class RegistryProtocol implements Protocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+
+        //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?
+        // application=dubbo-demo-api-consumer&dubbo=2.0.2&pid=23060&refer=dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D23060%26register.ip%3D172.19.5.49%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1575722596264&registry=zookeeper&timestamp=1575722596329
+        // 取 registry 参数值，并将其设置为协议头，默认是dubbo
         url = getRegistryUrl(url);
+
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-api-consumer&dubbo=2.0.2&pid=25580&refer=dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D25580%26register.ip%3D172.19.5.49%26side%3Dconsumer%26sticky
+        // %3Dfalse%26timestamp%3D1575722763958&timestamp=1575722764040
+        // 获得注册中心实例,建立zk的连接
         Registry registry = registryFactory.getRegistry(url);
+        // 如果是注册中心服务，则返回注册中心服务的invoker
+        //type =  interface org.apache.dubbo.demo.DemoService
         if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
         // group="a,b" or group="*"
+        // 将 url 查询字符串转为 Map
+        //{side=consumer, register.ip=172.19.5.49, lazy=false, methods=sayHello,sayHelloAsync, sticky=false, dubbo=2.0.2, pid=25580,
+        // interface=org.apache.dubbo.demo.DemoService, timestamp=1575722763958}
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
+        // 获得group值
         String group = qs.get(GROUP_KEY);
+        //group = null
         if (group != null && group.length() > 0) {
+
+            // 如果有多个组，或者组配置为*，则使用MergeableCluster，并调用 doRefer 继续执行服务引用逻辑
             if ((COMMA_SPLIT_PATTERN.split(group)).length > 1 || "*".equals(group)) {
                 return doRefer(getMergeableCluster(), registry, type, url);
             }
         }
+        // 只有一个组或者没有组配置，则直接执行doRefer
+        System.out.println("---------clustercluster------"+cluster);
+        //org.apache.dubbo.rpc.cluster.Cluster$Adaptive@6b19b79
         return doRefer(cluster, registry, type, url);
     }
 
@@ -407,21 +439,52 @@ public class RegistryProtocol implements Protocol {
         return ExtensionLoader.getExtensionLoader(Cluster.class).getExtension("mergeable");
     }
 
+    /**
+     * 1.创建一个 RegistryDirectory 实例，然后生成服务者消费者链接。
+     * 2.向注册中心进行注册。
+     * 3.紧接着订阅 providers、configurators、routers 等节点下的数据。完成订阅后，RegistryDirectory 会收到这几个节点下的子节点信息。
+     * 4.由于一个服务可能部署在多台服务器上，这样就会在 providers 产生多个节点，这个时候就需要 Cluster 将多个服务节点合并为一个，并生成一个 Invoker。
+     * @param cluster
+     * @param registry
+     * @param type
+     * @param url
+     * @param <T>
+     * @return
+     */
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
+
+        // 创建 RegistryDirectory 实例
         RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
+
+        // 设置注册中心
         directory.setRegistry(registry);
+
+        // 设置协议
         directory.setProtocol(protocol);
         // all attributes of REFER_KEY
-        Map<String, String> parameters = new HashMap<String, String>(directory.getUrl().getParameters());
+
+        // 所有属性放到map中
+        Map<String, String> parameters = new HashMap(directory.getUrl().getParameters());
+
+        // 生成服务消费者链接
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
+
+        // 注册服务消费者，在 consumers 目录下新节点
         if (!ANY_VALUE.equals(url.getServiceInterface()) && url.getParameter(REGISTER_KEY, true)) {
             directory.setRegisteredConsumerUrl(getRegisteredConsumerUrl(subscribeUrl, url));
+            // 注册服务消费者(这里的本质是连接zk创建节点)
+            //节点的名程是？
             registry.register(directory.getRegisteredConsumerUrl());
         }
+
+        // 创建路由规则链
         directory.buildRouterChain(subscribeUrl);
+
+        // 订阅 providers、configurators、routers 等节点数据
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));
 
+        // 一个注册中心可能有多个服务提供者，因此这里需要将多个服务提供者合并为一个，生成一个invoker
         Invoker invoker = cluster.join(directory);
         return invoker;
     }

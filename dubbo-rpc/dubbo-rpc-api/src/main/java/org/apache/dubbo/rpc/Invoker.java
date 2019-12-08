@@ -24,6 +24,7 @@ import org.apache.dubbo.common.Node;
  * @see org.apache.dubbo.rpc.Protocol#refer(Class, org.apache.dubbo.common.URL)
  * @see org.apache.dubbo.rpc.InvokerListener
  * @see org.apache.dubbo.rpc.protocol.AbstractInvoker
+ * provider 端的 Invoker 封装了对 ref 的调用逻辑
  */
 public interface Invoker<T> extends Node {
 

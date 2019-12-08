@@ -100,6 +100,7 @@ final class NettyChannel extends AbstractChannel {
         boolean success = true;
         int timeout = 0;
         try {
+            System.out.println("=====最终的利用netty进行发送=========");
             ChannelFuture future = channel.write(message);
             if (sent) {
                 timeout = getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);

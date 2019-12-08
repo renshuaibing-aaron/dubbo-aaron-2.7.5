@@ -45,6 +45,8 @@ public class Main {
 
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
+
+    //dubbo SPI实现
     private static final ExtensionLoader<Container> loader = ExtensionLoader.getExtensionLoader(Container.class);
 
     private static final ReentrantLock LOCK = new ReentrantLock();

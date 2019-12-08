@@ -110,6 +110,16 @@ public class DubboProtocol extends AbstractProtocol {
      */
     private final ConcurrentMap<String, String> stubServiceMethodsMap = new ConcurrentHashMap<>();
 
+    // 真正的 netty 请求处理器
+    /**
+     * 整个流程：当 netty 接收到一个请求时
+     *
+     * 1.首先根据请求参数 Channel channel, Invocation inv 组装 serviceKey=group/path:version:port
+     * 2.根据 serviceKey 从 AbstractProtocol#exporterMap 中获取 Exporter（DubboExporter 实例，服务暴露第二步做了存储）
+     * 3.从 Exporter 中获取 Invoker（AbstractInvoker 实例，服务暴露第二步做了存储）
+     * 4.调用 Invoker#invoke(...) 调用对应的 ref.xxxmethod(...)（服务暴露第一步做了初始化）
+     *
+     */
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
 
         @Override
@@ -122,6 +132,7 @@ public class DubboProtocol extends AbstractProtocol {
             }
 
             Invocation inv = (Invocation) message;
+            // 当请求到来时，找到真正要处理请求的那个Invoker
             Invoker<?> invoker = getInvoker(channel, inv);
             // need to consider backward-compatibility if it's a callback
             if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
@@ -147,10 +158,12 @@ public class DubboProtocol extends AbstractProtocol {
                 }
             }
             RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
+            // 发起调用
             Result result = invoker.invoke(inv);
             return result.thenApply(Function.identity());
         }
 
+        // 接收到请求时的处理逻辑
         @Override
         public void received(Channel channel, Object message) throws RemotingException {
             if (message instanceof Invocation) {
@@ -226,6 +239,7 @@ public class DubboProtocol extends AbstractProtocol {
         return INSTANCE;
     }
 
+    @Override
     public Collection<Exporter<?>> getExporters() {
         return Collections.unmodifiableCollection(exporterMap.values());
     }
@@ -237,10 +251,19 @@ public class DubboProtocol extends AbstractProtocol {
                 NetUtils.filterLocalHost(channel.getUrl().getIp())
                         .equals(NetUtils.filterLocalHost(address.getAddress().getHostAddress()));
     }
-
+    /**
+     * 当请求到来时，找到真正要处理请求的那个Invoker
+     * 1. 首先根据请求参数 Channel channel, Invocation inv 组装 serviceKey=group/path:version:port
+     * 2. 根据 serviceKey 从 ExporterMap 中获取 Exporter
+     * 3. 从Exporter 中获取 Invoker
+     */
     Invoker<?> getInvoker(Channel channel, Invocation inv) throws RemotingException {
         boolean isCallBackServiceInvoke = false;
         boolean isStubServiceInvoke = false;
+        /**
+         * 1. 根据请求参数 Channel channel, Invocation inv 组装 serviceKey=group/path:version:port
+         *    port 从 Channel 中获取；path、version、group 从 Invocation 中获取
+         */
         int port = channel.getLocalAddress().getPort();
         String path = (String) inv.getAttachments().get(PATH_KEY);
 
@@ -256,15 +279,20 @@ public class DubboProtocol extends AbstractProtocol {
             path += "." + inv.getAttachments().get(CALLBACK_SERVICE_KEY);
             inv.getAttachments().put(IS_CALLBACK_SERVICE_INVOKE, Boolean.TRUE.toString());
         }
-
+        // group/path:version:port
         String serviceKey = serviceKey(port, path, (String) inv.getAttachments().get(VERSION_KEY), (String) inv.getAttachments().get(GROUP_KEY));
+        /**
+         * 2. 从 exporterMap 中获取 Exporter
+         */
         DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
 
         if (exporter == null) {
             throw new RemotingException(channel, "Not found exported service: " + serviceKey + " in " + exporterMap.keySet() + ", may be version or group mismatch " +
                     ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress() + ", message:" + getInvocationWithoutData(inv));
         }
-
+        /**
+         * 3. 从Exporter 中获取 Invoker
+         */
         return exporter.getInvoker();
     }
 
@@ -282,8 +310,15 @@ public class DubboProtocol extends AbstractProtocol {
         URL url = invoker.getUrl();
 
         // export service.
+        // 获取 serviceKey：group/path:version:port
         String key = serviceKey(url);
+        //每次创建的时候都创建一个新的DubboExporter，并将其返回上层使用
+        // 将 invoker 存储到 DubboExporter 中，
+        // 并且让 DubboExporter 持有 AbstractProtocol#exporterMap 的对象引用
+        // （后续 DubboExporter 在做销毁操作时，会主动从该 exporterMap 中删除对象，做到逻辑高内聚）
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
+
+        // 将 {serviceKey:具体的Exporter} 存储到 AbstractProtocol#exporterMap 中，当请求到来时，来这里根据 serviceKey 获取 Exporter
         exporterMap.put(key, exporter);
 
         //export an stub service for dispatching event
@@ -302,6 +337,8 @@ public class DubboProtocol extends AbstractProtocol {
             }
         }
 
+        //打开服务
+        // 开启 netty 服务
         openServer(url);
         optimizeSerialization(url);
 
@@ -330,6 +367,8 @@ public class DubboProtocol extends AbstractProtocol {
     }
 
     private ProtocolServer createServer(URL url) {
+
+        System.out.println("=========createServer============");
         url = URLBuilder.from(url)
                 // send readonly event when server closes, it's enabled by default
                 .addParameterIfAbsent(CHANNEL_READONLYEVENT_SENT_KEY, Boolean.TRUE.toString())
@@ -398,12 +437,22 @@ public class DubboProtocol extends AbstractProtocol {
         }
     }
 
+    /**
+     * DubboProtocol的refer()
+     * @param serviceType
+     * @param url
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Invoker<T> protocolBindingRefer(Class<T> serviceType, URL url) throws RpcException {
         optimizeSerialization(url);
 
         // create rpc invoker.
+        // 创建一个DubboInvoker实例
         DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
+        //加入到集合中
         invokers.add(invoker);
 
         return invoker;

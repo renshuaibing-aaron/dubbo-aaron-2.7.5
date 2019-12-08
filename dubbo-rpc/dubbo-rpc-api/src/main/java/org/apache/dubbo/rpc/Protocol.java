@@ -48,6 +48,9 @@ public interface Protocol {
      * @param invoker Service invoker
      * @return exporter reference for exported service, useful for unexport the service later
      * @throws RpcException thrown when error occurs during export the service, for example: port is occupied
+     *
+     * 在export方法上有@Adaptive注解，这个注解写在方法上，有个作用，
+     * 可以根据传入的URL来指定需要的协议，上面的URL中指名了是registry，所以他使用的应该是registryProtocol协议
      */
     @Adaptive
     <T> Exporter<T> export(Invoker<T> invoker) throws RpcException;

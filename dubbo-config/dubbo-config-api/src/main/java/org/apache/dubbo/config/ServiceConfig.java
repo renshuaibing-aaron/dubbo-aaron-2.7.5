@@ -114,6 +114,10 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      */
     private static final ScheduledExecutorService DELAY_EXPORT_EXECUTOR = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("DubboServiceDelayExporter", true));
 
+
+    /**
+     * 动态SPI应用
+     */
     private static final Protocol protocol = ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension();
 
     /**
@@ -285,6 +289,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
 
     protected synchronized void doExport() {
+        System.out.println("============开始发布doExport==========");
         if (unexported) {
             throw new IllegalStateException("The service " + interfaceClass.getName() + " has already unexported!");
         }
@@ -296,6 +301,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         if (StringUtils.isEmpty(path)) {
             path = interfaceName;
         }
+        //暴露服务
         doExportUrls();
 
         // dispatch a ServiceConfigExportedEvent since 2.7.4
@@ -306,16 +312,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     private void doExportUrls() {
         ServiceRepository repository = ApplicationModel.getServiceRepository();
         ServiceDescriptor serviceDescriptor = repository.registerService(getInterfaceClass());
-        repository.registerProvider(
-                getUniqueServiceName(),
-                ref,
-                serviceDescriptor,
-                this,
-                serviceMetadata
-        );
+        repository.registerProvider(getUniqueServiceName(),ref,serviceDescriptor,this,serviceMetadata);
 
+        //获取到注册中心的地址
         List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);
 
+        //暴露的服务的信息放到注册中心上
+        // 测试环境下只有一个dubbo协议
         for (ProtocolConfig protocolConfig : protocols) {
             String pathKey = URL.buildKey(getContextPath(protocolConfig)
                     .map(p -> p + "/" + path)
@@ -324,12 +327,15 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             repository.registerService(pathKey, interfaceClass);
             // TODO, uncomment this line once service key is unified
             serviceMetadata.setServiceKey(pathKey);
+
+            //核心方法
             doExportUrlsFor1Protocol(protocolConfig, registryURLs);
         }
     }
 
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
         String name = protocolConfig.getName();
+        //dubbo
         if (StringUtils.isEmpty(name)) {
             name = DUBBO;
         }
@@ -447,11 +453,19 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
             // export to local if the config is not remote (export to remote only when config is remote)
             if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {
+                //本地方法暴露
+                //dubbo://172.19.5.49:20880/org.apache.dubbo.demo.DemoService?
+                // anyhost=true&bind.ip=172.19.5.49&bind.port=20880&deprecated=false&dubbo=2.0.2
+                // &dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService
+                // &methods=sayHello,sayHelloAsync&pid=19580&release=&side=provider&timestamp=1575641001438
+                System.out.println("======本地方法暴露================"+url);
                 exportLocal(url);
             }
             // export to remote if the config is not local (export to local only when config is local)
             if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {
+                System.out.println("发布远程服务"+interfaceClass.getName()+"to url " +url);
                 if (CollectionUtils.isNotEmpty(registryURLs)) {
+                    //注册 只有一个信息
                     for (URL registryURL : registryURLs) {
                         //if protocol is only injvm ,not register
                         if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
@@ -476,10 +490,31 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                             registryURL = registryURL.addParameter(PROXY_KEY, proxy);
                         }
 
-                        Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
+                        //这里方法拆分
+                        //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-api-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F172.19.5.49%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26bind.ip%3D172.19.5.49%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%2CsayHelloAsync%26pid%3D19580%26release%3D%26side%3D
+                        // provider%26timestamp%3D1575641001438&pid=19580&registry=zookeeper&timestamp=1575641001429
+                        URL remoteurl = registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString());
+                        System.out.println("========远程方法暴露==remoteurl============"+remoteurl);
+                        System.out.println("========远程方法暴露====ref=========="+ref);
+
+                        //这里和本地暴露很像
+                        ProxyFactory proxyFactory = PROXY_FACTORY;
+                        //服务暴露第一步，会使用 ProxyFactory#getInvoker(...) 将 ref 封装到 AbstractProxyInvoker 实例中，
+                        // 该实例是在 ProxyFactory#getInvoker(...) 中创建的匿名内部类，
+                        // 并复写了 AbstractProxyInvoker#doInvoker 方法
+                        //这样服务暴露的第一步，我们会得到一个由 JavassistProxyFactory#getInvoker(...) 创建的匿名内部类 AbstractProxyInvoker 实例
+                        Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, remoteurl);
+
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
+                        //RegistryProtocol
+                        //远程暴露
+                        //服务暴露的第二步，会使用 Protocol#export(Invoker<T> invoker)
+                        // 将第一步得到的 AbstractProxyInvoker 实例封装到 Exporter 中（Invoker 与 Exporter 一对一，
+                        // 后续 Exporter 会管理 Invoker 的生命周期，并且作为 Invoker 的门面与外部沟通），
+                        // 我们只看远程暴露，服务暴露第二步之后，会获得一个 DubboExporter 实例
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
+
                         exporters.add(exporter);
                     }
                 } else {
@@ -515,8 +550,14 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 .setHost(LOCALHOST_VALUE)
                 .setPort(0)
                 .build();
-        Exporter<?> exporter = protocol.export(
-                PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local));
+        ProxyFactory proxyFactory = PROXY_FACTORY;
+       // 就是为了获取一个接口的代理类，例如获取一个远程接口的代理。
+        //getInvoker:针对server端，将服务对象，如DemoServiceImpl包装成一个Invoker对象。
+        Invoker invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, local);
+
+
+        //本地暴露
+        Exporter<?> exporter = protocol.export(invoker);
         exporters.add(exporter);
         logger.info("Export dubbo service " + interfaceClass.getName() + " to local registry url : " + local);
     }

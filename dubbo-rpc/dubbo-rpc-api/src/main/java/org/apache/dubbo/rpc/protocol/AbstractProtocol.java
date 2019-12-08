@@ -46,6 +46,11 @@ public abstract class AbstractProtocol implements Protocol {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
+    /**
+     * 该容器是当请求到来时获取 Exporter 的地方
+     * key: serviceKey
+     * value: 具体的 Exporter 实例，eg. DubboExporter
+     */
     protected final Map<String, Exporter<?>> exporterMap = new ConcurrentHashMap<String, Exporter<?>>();
 
     /**

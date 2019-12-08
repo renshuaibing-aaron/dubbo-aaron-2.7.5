@@ -67,6 +67,7 @@ public class NettyServer extends AbstractServer implements RemotingServer {
 
     @Override
     protected void doOpen() throws Throwable {
+        System.out.println("=====NettyServer#doOpen===========");
         NettyHelper.setNettyLoggerFactory();
         ExecutorService boss = Executors.newCachedThreadPool(new NamedThreadFactory("NettyServerBoss", true));
         ExecutorService worker = Executors.newCachedThreadPool(new NamedThreadFactory("NettyServerWorker", true));
