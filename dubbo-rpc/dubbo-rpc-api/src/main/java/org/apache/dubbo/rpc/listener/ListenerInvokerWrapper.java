@@ -35,6 +35,7 @@ public class ListenerInvokerWrapper<T> implements Invoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(ListenerInvokerWrapper.class);
 
+    //ProtocolFilterWrapper$Invoker
     private final Invoker<T> invoker;
 
     private final List<InvokerListener> listeners;
@@ -75,6 +76,9 @@ public class ListenerInvokerWrapper<T> implements Invoker<T> {
 
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
+        //ProtocolFilterWrapper$Invoker
+        //之后就会执行一系列的filter
+        //filter后续会讲，现在直接执行到DubboInvoker.invoke，实际上该方法在其父类AbstractInvoker中，AbstractInvoker又调用了DubboInvoker.doInvoke
         return invoker.invoke(invocation);
     }
 

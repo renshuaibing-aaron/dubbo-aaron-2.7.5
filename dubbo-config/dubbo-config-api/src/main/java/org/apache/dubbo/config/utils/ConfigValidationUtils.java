@@ -166,6 +166,16 @@ public class ConfigValidationUtils {
     private static final Pattern PATTERN_KEY = Pattern.compile("[*,\\-._0-9a-zA-Z]+");
 
 
+    /**
+     * 1）、构建参数map映射表
+     *
+     * 2）、构建注册中心链接url
+     *
+     * 3）、遍历注册中心链接列表，根据条件判断是否加入 registryList 列表中
+     * @param interfaceConfig
+     * @param provider
+     * @return
+     */
     public static List<URL> loadRegistries(AbstractInterfaceConfig interfaceConfig, boolean provider) {
         // check && override if necessary
         List<URL> registryList = new ArrayList<URL>();
@@ -175,25 +185,38 @@ public class ConfigValidationUtils {
             for (RegistryConfig config : registries) {
                 String address = config.getAddress();
                 if (StringUtils.isEmpty(address)) {
+                    // 若 address 为空，则将其设为 0.0.0.0
                     address = ANYHOST_VALUE;
                 }
                 if (!RegistryConfig.NO_AVAILABLE.equalsIgnoreCase(address)) {
+                    // 若 address 非 N/A，才做处理
                     Map<String, String> map = new HashMap<String, String>();
+                    // 添加 ApplicationConfig 中的字段信息到 map 中
                     AbstractConfig.appendParameters(map, application);
                     AbstractConfig.appendParameters(map, config);
+
+                    // 添加 RegistryConfig 字段信息到 map 中
+                    // 添加 path、pid，protocol 等信息到 map 中
                     map.put(PATH_KEY, RegistryService.class.getName());
                     AbstractInterfaceConfig.appendRuntimeParameters(map);
                     if (!map.containsKey(PROTOCOL_KEY)) {
                         map.put(PROTOCOL_KEY, DUBBO_PROTOCOL);
                     }
+
+                    // 解析得到 URL 列表，address 可能包含多个注册中心 ip，
+                    // 因此解析得到的是一个 URL 列表
                     List<URL> urls = UrlUtils.parseURLs(address, map);
 
                     for (URL url : urls) {
-
+                        // 将 URL 协议头设置为 registry
                         url = URLBuilder.from(url)
                                 .addParameter(REGISTRY_KEY, url.getProtocol())
                                 .setProtocol(extractRegistryType(url))
                                 .build();
+
+                        // 通过判断条件，决定是否添加 url 到 registryList 中，条件如下：
+                        // (服务提供者 && register = true 或 null)
+                        //    || (非服务提供者 && subscribe = true 或 null)
                         if ((provider && url.getParameter(REGISTER_KEY, true))
                                 || (!provider && url.getParameter(SUBSCRIBE_KEY, true))) {
                             registryList.add(url);

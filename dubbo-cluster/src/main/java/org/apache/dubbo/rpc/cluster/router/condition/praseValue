@@ -1,0 +1,39 @@
+整个解析过程，解析字符串为 host = 2.2.2.2,3.3.3.3 & host != 1.1.1.1 & method = hello，解析结果如下：
+
+    括号一      括号二
+1.  null       host
+2.   =         2.2.2.2
+3.   ,          3.3.3.3
+4.   &         host
+5.   !=        1.1.1.1
+6.   &         method
+7.   =         hello
+
+线程进入 while 循环：
+
+第一次循环：分隔符 separator = null，content = "host"。此时创建 MatchPair 对象，并存入到 condition 中，condition = {"host": MatchPair@123}
+
+第二次循环：分隔符 separator = "="，content = "2.2.2.2"，pair = MatchPair@123。此时将 2.2.2.2 放入到 MatchPair@123 对象的 matches 集合中
+
+第三次循环：分隔符 separator = ","，content = "3.3.3.3"，pair = MatchPair@123。此时将 3.3.3.3 放入到 MatchPair@123 对象的 matches 集合中
+
+第四次循环：分隔符 separator = "&"，content = "host"，host 已存在于 condition 中，因此 pair = MatchPair@123
+
+第五次循环：分隔符 separator = "!="，content = "1.1.1.1"，pair = MatchPair@123。此时将 1.1.1.1 放入到 MatchPair@123 对象的  mismatches 集合中
+
+第六次循环：分隔符 separator = "&"，content = "method"，condition.get("method") = null，此时创建一个新的 MatchPair 对象，并放入到 condition 中。此时 condition = {"host": MatchPair@123, "method": MatchPair@ 456}
+
+第七次循环：分隔符 separator = "="，content = "hello"，pair = MatchPair@456。此时将 hello 放入到 MatchPair@456 对象的 matches 集合中
+
+循环结束，此时 condition 的内容如下：
+
+{
+    "host": {
+        "matches": ["2.2.2.2","3.3.3.3"],
+        "mismatches": ["1.1.1.1"]
+    },
+    "method": {
+        "matches": ["hello"],
+        "mismatches": []
+    }
+}

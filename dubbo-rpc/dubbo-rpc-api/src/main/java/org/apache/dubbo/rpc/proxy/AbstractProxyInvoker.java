@@ -34,11 +34,13 @@ import java.util.concurrent.CompletionException;
 
 /**
  * InvokerWrapper
+ * 最终封装的代理 Invoker，其子类内部发起真正的调用
  */
 public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     Logger logger = LoggerFactory.getLogger(AbstractProxyInvoker.class);
 
     //// 真实对象 ref, eg. DemoServiceImpl
+    //DemoServiceImpl实例
     private final T proxy;
 
     private final Class<T> type;
@@ -85,6 +87,7 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
         try {
 
             // 子类覆写的真正调用的方法
+            //子类JavassistProxyFactory$AbstractProxyInvoker.doInvoke，之后将返回结果封装为RpcResult返回
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
             CompletableFuture<Object> future = wrapWithFuture(value, invocation);
             CompletableFuture<AppResponse> appResponseFuture = future.handle((obj, t) -> {

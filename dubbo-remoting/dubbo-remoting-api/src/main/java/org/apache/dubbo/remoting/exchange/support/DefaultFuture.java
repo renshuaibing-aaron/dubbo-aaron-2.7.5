@@ -79,15 +79,19 @@ public class DefaultFuture extends CompletableFuture<Object> {
     private DefaultFuture(Channel channel, Request request, int timeout) {
         this.channel = channel;
         this.request = request;
+        // 获取请求 id，这个 id 相当重要，它标记是哪个请求的结果
         this.id = request.getId();
         this.timeout = timeout > 0 ? timeout : channel.getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);
         // put into waiting map.
+        // 请求对应的异步结果存储到map中，key->requestId, value->DefaultFuture
         FUTURES.put(id, this);
+        // 请求对应的请求通道存储到map中，key->requestId, value->Channel
         CHANNELS.put(id, channel);
     }
 
     /**
      * check time out of the future
+     * 请求返回的超时检查
      */
     private static void timeoutCheck(DefaultFuture future) {
         TimeoutCheckTask task = new TimeoutCheckTask(future.getId());
@@ -113,6 +117,9 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     public static DefaultFuture getFuture(long id) {
+        // 获取请求对应的请求结果
+        //用户线程先调用 DefaultFuture 的 getFuture 方法通过 requestId 获取到线程池中请求对应的 DefaultFuture 对象
+        System.out.println("====用户线程======="+Thread.currentThread());
         return FUTURES.get(id);
     }
 
@@ -123,6 +130,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
     public static void sent(Channel channel, Request request) {
         DefaultFuture future = FUTURES.get(request.getId());
         if (future != null) {
+            // 获取请求时间
             future.doSent();
         }
     }
@@ -151,18 +159,23 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     public static void received(Channel channel, Response response) {
+        // 接收请求返回结果
         received(channel, response, false);
     }
 
     public static void received(Channel channel, Response response, boolean timeout) {
         try {
+            //删除元素并返回key=response.getId()的DefaultFuture
             DefaultFuture future = FUTURES.remove(response.getId());
+
             if (future != null) {
                 Timeout t = future.timeoutCheckTask;
                 if (!timeout) {
                     // decrease Time
+                    // 取消超时检查任务
                     t.cancel();
                 }
+                // 执行接收请求结果处理
                 future.doReceived(response);
             } else {
                 logger.warn("The timeout response finally returned at "
@@ -192,14 +205,23 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     private void doReceived(Response res) {
+        System.out.println(Thread.currentThread()+"===============客户端获取到结果==============="+res);
         if (res == null) {
+            // 返回结果为null，抛出异常
             throw new IllegalStateException("response cannot be null");
         }
         if (res.getStatus() == Response.OK) {
-            this.complete(res.getResult());
+            System.out.println("========这里进行唤醒==22=========="+Thread.currentThread());
+            // 请求结果状态成功，处理结果值
+            Object result = res.getResult();
+            this.complete(result);
+
         } else if (res.getStatus() == Response.CLIENT_TIMEOUT || res.getStatus() == Response.SERVER_TIMEOUT) {
+            // 客户端请求超时或者服务端响应超时，抛出 TimeoutException
             this.completeExceptionally(new TimeoutException(res.getStatus() == Response.SERVER_TIMEOUT, channel, res.getErrorMessage()));
+
         } else {
+            // 请求中的其他异常，抛出 RemotingException
             this.completeExceptionally(new RemotingException(channel, res.getErrorMessage()));
         }
 
@@ -208,6 +230,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
         if (executor != null && executor instanceof ThreadlessExecutor) {
             ThreadlessExecutor threadlessExecutor = (ThreadlessExecutor) executor;
             if (threadlessExecutor.isWaiting()) {
+                System.out.println("========这里进行唤醒============");
                 threadlessExecutor.notifyReturn();
             }
         }
@@ -268,6 +291,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
         public void run(Timeout timeout) {
             DefaultFuture future = DefaultFuture.getFuture(requestID);
             if (future == null || future.isDone()) {
+                // future 为null或者请求完成，直接返回
                 return;
             }
             if (future.getExecutor() != null) {

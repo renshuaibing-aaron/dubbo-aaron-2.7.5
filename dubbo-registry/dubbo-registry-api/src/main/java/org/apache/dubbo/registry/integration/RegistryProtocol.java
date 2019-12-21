@@ -187,47 +187,71 @@ public class RegistryProtocol implements Protocol {
         ));
     }
 
+    /**
+     * 1）、doLocalExport 方法中调用 DubboProtocol 的 export方法导出服务
+     * 2）、向注册中心注册服务，即URL
+     * 3）、向注册中心订阅 override 数据
+     * 4）、创建并返回 DestroyableExporter
+     * @param originInvoker
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
 
         System.out.println("===================RegistryProtocol#export===========");
+        // 获取注册中心url
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
+        // 获取提供者ur
         URL providerUrl = getProviderUrl(originInvoker);
 
+        // 获取订阅url
         // Subscribe the override data
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
+
+
+        // 创建订阅监听器
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
+
 
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
         //export invoker
         //// 1. 做具体的 Protocol 的暴露操作
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
-        // url to registry
-        // 2. 获取注册中心
+
+        // url to registry 根据 URL 加载 Registry 实现类，这里使用的是Zookeeper注册中心， 获取到的自然是 ZookeeperRegistry
+        // 2. 获取注册中心 创建Registry：创建zkclient，连接zk
         final Registry registry = getRegistry(originInvoker);
 
         //获得要注册的链接，也就是真正的要暴露的服务
+        //获取已注册的服务提供者 URL，并过滤url中的参数，例如 bind.ip、bind.port 等
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
 
+
         //to judge if we need to delay publish
+        // 获取register参数值，默认是注册服务
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
-            // 3. 注册
+            // 3. 注册向注册中心注册服务 创建zk节点  // 设置已注册标识
             register(registryUrl, registeredProviderUrl);
         }
 
         // Deprecated! Subscribe to override rules in 2.6.x or before.
+        //订阅override数据
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
         exporter.setRegisterUrl(registeredProviderUrl);
         exporter.setSubscribeUrl(overrideSubscribeUrl);
         //Ensure that a new exporter instance is returned every time export
+        //创建新的Exporter实例
+        //包含了上边的ExporterChangeableWrapper<T> exporter实例 + ZookeeperRegistry实例
         return new DestroyableExporter<>(exporter);
     }
 
@@ -240,12 +264,16 @@ public class RegistryProtocol implements Protocol {
 
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
+        // 获取 originInvoker 中的 url 中的 export 参数值
         String key = getCacheKey(originInvoker);
 
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
+            // 创建 Invoker 委托类对象 InvokerDelegate
             Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);
 
-            // 调用具体 Protocol 暴露服务
+            // 调用 protocol 的 export方法导出服务，providerUrl 的协议是 dubbo, 故这里调用的是 DubboProtocol 的 export 方法
+            //protocol 的 export 调用逻辑：doLocalExport(RegistryProtocol) -> export(ProtocolFilterWrapper)
+            // -> export(ProtocolListenerWrapper) -> export(DubboProtocol)
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
         });
     }
@@ -395,19 +423,29 @@ public class RegistryProtocol implements Protocol {
         return key;
     }
 
+    /**
+     * registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?
+     *  application=dubbo-demo-api-consumer&dubbo=2.0.2&pid=23060&refer=dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D23060%26register.ip%3D172.19.5.49%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1575722596264&registry=zookeeper&timestamp=1575722596329
+     *  type: interface com.alibaba.dubbo.demo.DemoService
+     * @param type Service class
+     * @param url  URL address for the remote service
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
 
-        //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?
-        // application=dubbo-demo-api-consumer&dubbo=2.0.2&pid=23060&refer=dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D23060%26register.ip%3D172.19.5.49%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1575722596264&registry=zookeeper&timestamp=1575722596329
-        // 取 registry 参数值，并将其设置为协议头，默认是dubbo
+        //替换协议 把registry->zookeeper
         url = getRegistryUrl(url);
+        //zookeeper://127.0.0.1:2181/org.apache.d...
 
-        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-api-consumer&dubbo=2.0.2&pid=25580&refer=dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D25580%26register.ip%3D172.19.5.49%26side%3Dconsumer%26sticky
-        // %3Dfalse%26timestamp%3D1575722763958&timestamp=1575722764040
-        // 获得注册中心实例,建立zk的连接
+
+        // 1. 获取注册中心：创建ZkClient实例，连接zk  (这里的registryFactory是RegistryFactory$Adaptive）
+        //extName是zookeeper。之后执行ZookeeperRegistryFactory的父类AbstractRegistryFactory.getRegistry
         Registry registry = registryFactory.getRegistry(url);
+
         // 如果是注册中心服务，则返回注册中心服务的invoker
         //type =  interface org.apache.dubbo.demo.DemoService
         if (RegistryService.class.equals(type)) {
@@ -419,6 +457,7 @@ public class RegistryProtocol implements Protocol {
         //{side=consumer, register.ip=172.19.5.49, lazy=false, methods=sayHello,sayHelloAsync, sticky=false, dubbo=2.0.2, pid=25580,
         // interface=org.apache.dubbo.demo.DemoService, timestamp=1575722763958}
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
+
         // 获得group值
         String group = qs.get(GROUP_KEY);
         //group = null
@@ -430,7 +469,6 @@ public class RegistryProtocol implements Protocol {
             }
         }
         // 只有一个组或者没有组配置，则直接执行doRefer
-        System.out.println("---------clustercluster------"+cluster);
         //org.apache.dubbo.rpc.cluster.Cluster$Adaptive@6b19b79
         return doRefer(cluster, registry, type, url);
     }
@@ -442,8 +480,9 @@ public class RegistryProtocol implements Protocol {
     /**
      * 1.创建一个 RegistryDirectory 实例，然后生成服务者消费者链接。
      * 2.向注册中心进行注册。
-     * 3.紧接着订阅 providers、configurators、routers 等节点下的数据。完成订阅后，RegistryDirectory 会收到这几个节点下的子节点信息。
-     * 4.由于一个服务可能部署在多台服务器上，这样就会在 providers 产生多个节点，这个时候就需要 Cluster 将多个服务节点合并为一个，并生成一个 Invoker。
+     * 3.然后开启监听器（此处发生了第一次服务发现／长连接的建立／netty客户端的建立）
+     * 4.紧接着订阅 providers、configurators、routers 等节点下的数据。完成订阅后，RegistryDirectory 会收到这几个节点下的子节点信息。
+     * 5.由于一个服务可能部署在多台服务器上，这样就会在 providers 产生多个节点，这个时候就需要 Cluster 将多个服务节点合并为一个，并生成一个 Invoker。
      * @param cluster
      * @param registry
      * @param type
@@ -453,7 +492,7 @@ public class RegistryProtocol implements Protocol {
      */
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
 
-        // 创建 RegistryDirectory 实例
+        // 1. 创建 RegistryDirectory 实例
         RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
 
         // 设置注册中心
@@ -467,24 +506,30 @@ public class RegistryProtocol implements Protocol {
         Map<String, String> parameters = new HashMap(directory.getUrl().getParameters());
 
         // 生成服务消费者链接
+        // 例如：consumer:///org.apache.dubbo.demo.DemoService?...
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
 
         // 注册服务消费者，在 consumers 目录下新节点
         if (!ANY_VALUE.equals(url.getServiceInterface()) && url.getParameter(REGISTER_KEY, true)) {
             directory.setRegisteredConsumerUrl(getRegisteredConsumerUrl(subscribeUrl, url));
-            // 注册服务消费者(这里的本质是连接zk创建节点)
-            //节点的名程是？
+            // 注册服务消费者(这里的本质是连接zk创建节点)在 consumers 目录下创建节点，节点数据：
+            // consumer:///org.apache.dubbo.demo.DemoService?applic...
+            // 2. 向注册中心注册服务
+            //FailbackRegistry.register
             registry.register(directory.getRegisteredConsumerUrl());
         }
 
         // 创建路由规则链
         directory.buildRouterChain(subscribeUrl);
 
-        // 订阅 providers、configurators、routers 等节点数据
+        // 3. 订阅org.apache.dubbo.demo.DemoService/providers、configurators、routers
+        // （订阅时，调用了具体的Protocol,eg. DubboProtocol 的 refer(RegistryDirectory)，方法，
+        // 在该方法中，创建了 nettyClient 端，并建立了长连接）
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));
 
         // 一个注册中心可能有多个服务提供者，因此这里需要将多个服务提供者合并为一个，生成一个invoker
+        // 4. 将directory封装成一个ClusterInvoker（MockClusterInvoker）
         Invoker invoker = cluster.join(directory);
         return invoker;
     }

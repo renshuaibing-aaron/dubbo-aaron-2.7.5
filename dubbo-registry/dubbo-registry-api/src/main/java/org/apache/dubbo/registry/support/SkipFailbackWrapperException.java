@@ -17,7 +17,7 @@
 package org.apache.dubbo.registry.support;
 
 /**
- * Wrapper Exception, it is used to indicate that {@link FailbackRegistry} skips Failback.
+ * wrapper Exception, it is used to indicate that {@link FailbackRegistry} skips Failback.
  * <p>
  * NOTE: Expect to find other more conventional ways of instruction.
  *

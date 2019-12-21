@@ -18,7 +18,7 @@
 package org.apache.dubbo.common.serialize.protostuff;
 
 /**
- * Protostuff can only serialize/deserialize POJOs, for those it can't deal with, use this Wrapper.
+ * Protostuff can only serialize/deserialize POJOs, for those it can't deal with, use this wrapper.
  */
 public class Wrapper<T> {
     private T data;

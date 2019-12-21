@@ -53,7 +53,15 @@ public class AsyncToSyncInvoker<T> implements Invoker<T> {
 
         try {
             if (InvokeMode.SYNC == ((RpcInvocation) invocation).getInvokeMode()) {
-                asyncResult.get(Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
+
+                System.out.println("==========这里做到异步转同步=============="+Thread.currentThread());
+                System.out.println("==========这里做到异步转同步===11==========="+asyncResult.getClass());
+                /**
+                 * 在AsyncToSyncInvoker#invoke方法中，
+                 * 会判断是同步调用还是异步调用，如果是同步调用，将调用AsyncRpcResult#get方法阻塞用户线程，以达到同步效果
+                 */
+                 asyncResult.get(Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
+                System.out.println("========resultresult=============");
             }
         } catch (InterruptedException e) {
             throw new RpcException("Interrupted unexpectedly while waiting for remoting result to return!  method: " + invocation.getMethodName() + ", provider: " + getUrl() + ", cause: " + e.getMessage(), e);
@@ -67,6 +75,7 @@ public class AsyncToSyncInvoker<T> implements Invoker<T> {
         } catch (Throwable e) {
             throw new RpcException(e.getMessage(), e);
         }
+        System.out.println("==============asyncResultasyncResult=========="+asyncResult);
         return asyncResult;
     }
 

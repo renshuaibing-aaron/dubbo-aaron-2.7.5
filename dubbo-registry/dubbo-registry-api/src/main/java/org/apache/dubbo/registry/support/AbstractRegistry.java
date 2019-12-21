@@ -389,6 +389,7 @@ public abstract class AbstractRegistry implements Registry {
      * @param urls     provider latest urls
      */
     protected void notify(URL url, NotifyListener listener, List<URL> urls) {
+        System.out.println("======客户端监听后==========");
         if (url == null) {
             throw new IllegalArgumentException("notify url == null");
         }
@@ -404,6 +405,23 @@ public abstract class AbstractRegistry implements Registry {
             logger.info("Notify urls for subscribe url " + url + ", urls: " + urls);
         }
         // keep every provider's category.
+        //首先是一个for循环对传入的url列表进行分类，分类结果如下：
+        /*
+        * {
+configurators=[
+empty://10.10.10.10/com.alibaba.dubbo.demo.DemoService?application=demo-consumer&category=configurators&check=false&dubbo=2.0.0&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25267&side=consumer&timestamp=1510225913509
+],
+
+routers=[
+empty://10.10.10.10/com.alibaba.dubbo.demo.DemoService?application=demo-consumer&category=routers&check=false&dubbo=2.0.0&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25267&side=consumer&timestamp=1510225913509
+],
+
+providers=[
+dubbo://10.211.55.5:20880/com.alibaba.dubbo.demo.DemoService?anyhost=true&application=demo-provider&dubbo=2.5.7&generic=false&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=318&revision=2.5.7&side=provider&timestamp=1510225244315,
+
+dubbo://10.10.10.10:20880/com.alibaba.dubbo.demo.DemoService?anyhost=true&application=demo-provider&dubbo=2.0.0&generic=false&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25215&side=provider&timestamp=1510225334486
+]
+}*/
         Map<String, List<URL>> result = new HashMap<>();
         for (URL u : urls) {
             if (UrlUtils.isMatch(url, u)) {
@@ -416,10 +434,14 @@ public abstract class AbstractRegistry implements Registry {
             return;
         }
         Map<String, List<URL>> categoryNotified = notified.computeIfAbsent(url, u -> new ConcurrentHashMap<>());
+
+        //之后执行第二个for循环，对上述的result进行遍历，分别进行保存文件和通知。其中前两个entry没做什么核心事，直接来看providers的entry的通知。代码RegistryDirectory.
+        //notify(List<URL> urls)。这里的urls就是上边的providers的两个value值。
         for (Map.Entry<String, List<URL>> entry : result.entrySet()) {
             String category = entry.getKey();
             List<URL> categoryList = entry.getValue();
             categoryNotified.put(category, categoryList);
+            System.out.println("========= listener.notify(categoryList);==================");
             listener.notify(categoryList);
             // We will update our cache file after each notification.
             // When our Registry has a subscribe failure due to network jitter, we can return at least the existing cache URL.

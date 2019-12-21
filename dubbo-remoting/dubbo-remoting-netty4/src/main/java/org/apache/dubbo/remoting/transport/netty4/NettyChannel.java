@@ -48,6 +48,7 @@ final class NettyChannel extends AbstractChannel {
     private static final ConcurrentMap<Channel, NettyChannel> CHANNEL_MAP = new ConcurrentHashMap<Channel, NettyChannel>();
     /**
      * netty channel
+     * //NioClientSocketChannel
      */
     private final Channel channel;
 
@@ -154,12 +155,19 @@ final class NettyChannel extends AbstractChannel {
     @Override
     public void send(Object message, boolean sent) throws RemotingException {
         // whether the channel is closed
+        // NettyChannel 是否关闭
         super.send(message, sent);
 
         boolean success = true;
         int timeout = 0;
         try {
+            //这里调用netty内部类进行发送数据，发送数据前有编码行为
+            // 发送消息（包含请求和响应消息）
             ChannelFuture future = channel.writeAndFlush(message);
+            // sent 的值源于 <dubbo:method sent="true/false" /> 中 sent 的配置值，有两种配置值：
+            //   1. true: 等待消息发出，消息发送失败将抛出异常
+            //   2. false: 不等待消息发出，将消息放入 IO 队列，即刻返回
+            // 默认情况下 sent = false；
             if (sent) {
                 // wait timeout ms
                 timeout = getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);

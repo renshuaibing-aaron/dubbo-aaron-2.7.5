@@ -95,6 +95,7 @@ public class NettyServerHandler extends ChannelDuplexHandler {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
+        // 调用 AbstractPeer 的 received 方法接收数据
         handler.received(channel, msg);
     }
 

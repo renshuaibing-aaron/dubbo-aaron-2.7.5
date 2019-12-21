@@ -55,6 +55,8 @@ public class Main {
 
     public static void main(String[] args) {
         try {
+
+            // 加载 dubbo.spring.config 配置路径下的所有文件
             if (ArrayUtils.isEmpty(args)) {
                 String config = ConfigUtils.getProperty(CONTAINER_KEY, loader.getDefaultExtensionName());
                 args = COMMA_SPLIT_PATTERN.split(config);

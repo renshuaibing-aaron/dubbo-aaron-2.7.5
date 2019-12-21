@@ -34,6 +34,7 @@ public class DubboLifecycleComponentRegistrar implements ImportBeanDefinitionReg
 
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
+        System.out.println("=========控制生命周期=============");
         registerBeans(registry, DubboLifecycleComponentApplicationListener.class);
     }
 }

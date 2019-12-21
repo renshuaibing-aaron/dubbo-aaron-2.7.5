@@ -169,8 +169,12 @@ public class AsyncRpcResult implements Result {
     public Result get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
         if (executor != null) {
             ThreadlessExecutor threadlessExecutor = (ThreadlessExecutor) executor;
+            //这里进行等待  在另外的地方进行唤醒
+            System.out.println("========这里进行等待============");
             threadlessExecutor.waitAndDrain();
         }
+        System.out.println("===========2222222================"+Thread.currentThread());
+        System.out.println("===========111111================"+responseFuture);
         return responseFuture.get(timeout, unit);
     }
 
@@ -184,6 +188,7 @@ public class AsyncRpcResult implements Result {
         return getAppResponse().recreate();
     }
 
+    @Override
     public Result whenCompleteWithContext(BiConsumer<Result, Throwable> fn) {
         this.responseFuture = this.responseFuture.whenComplete((v, t) -> {
             beforeContext.accept(v, t);

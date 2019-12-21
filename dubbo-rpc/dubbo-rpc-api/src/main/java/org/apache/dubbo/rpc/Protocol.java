@@ -25,6 +25,7 @@ import java.util.List;
 
 /**
  * Protocol. (API/SPI, Singleton, ThreadSafe)
+ * @SPI：指定一个接口为SPI接口（可扩展接口）
  */
 @SPI("dubbo")
 public interface Protocol {
@@ -51,6 +52,10 @@ public interface Protocol {
      *
      * 在export方法上有@Adaptive注解，这个注解写在方法上，有个作用，
      * 可以根据传入的URL来指定需要的协议，上面的URL中指名了是registry，所以他使用的应该是registryProtocol协议
+     * @Adaptive：该注解可以注解在两个地方：
+     *
+     * 接口上：在 Dubbo 中，仅有 AdaptiveExtensionFactory 和 AdaptiveCompiler；
+     * 接口的方法上：会动态生成相应的动态类（实际上是一个工厂类，工厂设计模式），例如 Protocol$Adapter
      */
     @Adaptive
     <T> Exporter<T> export(Invoker<T> invoker) throws RpcException;

@@ -76,6 +76,7 @@ public class ConfigurableMetadataServiceExporter implements MetadataServiceExpor
             serviceConfig.setVersion(metadataService.version());
 
             // export
+            System.out.println("=========导出服务============");
             serviceConfig.export();
 
             if (logger.isInfoEnabled()) {

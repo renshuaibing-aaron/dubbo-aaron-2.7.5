@@ -39,8 +39,10 @@ public class MockClusterInvoker<T> implements Invoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(MockClusterInvoker.class);
 
+    ////RegistryDirectory
     private final Directory<T> directory;
 
+    //FailoverClusterInvoker
     private final Invoker<T> invoker;
 
     public MockClusterInvoker(Directory<T> directory, Invoker<T> invoker) {
@@ -68,24 +70,42 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         return directory.getInterface();
     }
 
+    /**
+     * 服务降级的地方
+     *
+     *   这里实际上会根据配置的mock参数来做服务降级：
+     *   1 如果没有配置mock参数或者mock=false，则进行远程调用；
+     *   2 如果配置了mock=force:return null，则直接返回null，不进行远程调用；
+     *   3 如果配置了mock=fail:return null，先进行远程调用，失败了在进行mock调用。
+     *
+     * @param invocation
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
 
         System.out.println("=========MockClusterInvoker===========");
         Result result = null;
-
+        //获取 mock 配置
+        //sayHello.mock->mock->default.mock
         String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), MOCK_KEY, Boolean.FALSE.toString()).trim();
+
         if (value.length() == 0 || "false".equalsIgnoreCase(value)) {
             //no mock
+            //FailoverClusterInvoker.invoke  在其父类AbstractClusterInvoker
+            // 没有 mock 配置 或者 mock 为 false，直接调用 AbstractClusterInvoker 的 invoke 方法
             result = this.invoker.invoke(invocation);
         } else if (value.startsWith("force")) {
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory.getUrl());
             }
             //force:direct mock
+            // force:xxx 直接执行 mock 逻辑，不发起远程调用，这里就是服务降级策略
             result = doMockInvoke(invocation, null);
         } else {
             //fail-mock
+            // consumer 调用失败后，再执行 mock 逻辑，不抛出异常
             try {
                 result = this.invoker.invoke(invocation);
 
@@ -95,6 +115,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
                     if(rpcException.isBiz()){
                         throw  rpcException;
                     }else {
+                        // 调用失败，执行 mock 逻辑，即服务降级
                         result = doMockInvoke(invocation, rpcException);
                     }
                 }
@@ -118,7 +139,10 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         Result result = null;
         Invoker<T> minvoker;
 
+        System.out.println("=========================");
+        ////获取Invokers
         List<Invoker<T>> mockInvokers = selectMockInvoker(invocation);
+
         if (CollectionUtils.isEmpty(mockInvokers)) {
             minvoker = (Invoker<T>) new MockInvoker(directory.getUrl(), directory.getInterface());
         } else {
@@ -163,6 +187,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
             ((RpcInvocation) invocation).setAttachment(INVOCATION_NEED_MOCK, Boolean.TRUE.toString());
             //directory will return a list of normal invokers if Constants.INVOCATION_NEED_MOCK is present in invocation, otherwise, a list of mock invokers will return.
             try {
+                //AbstractDirectory.list(Invocation invocation)
                 invokers = directory.list(invocation);
             } catch (RpcException e) {
                 if (logger.isInfoEnabled()) {

@@ -1,0 +1,37 @@
+- static Map<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS
+    -- "interface com.alibaba.dubbo.rpc.Protocol" -> "com.alibaba.dubbo.common.extension.ExtensionLoader[com.alibaba.dubbo.rpc.Protocol]"
+    -- "interface com.alibaba.dubbo.common.extension.ExtensionFactory" -> "com.alibaba.dubbo.common.extension.ExtensionLoader[com.alibaba.dubbo.common.extension.ExtensionFactory]"
+
+
+- static Map<Class<?>, Object> EXTENSION_INSTANCES
+    -- "class com.alibaba.dubbo.rpc.protocol.dubbo.DubboProtocol" -> DubboProtocol 实例
+    -- "class com.alibaba.dubbo.common.extension.factory.SpiExtensionFactory" -> SpiExtensionFactory 实例
+    -- "class com.alibaba.dubbo.config.spring.extension.SpringExtensionFactory" -> SpringExtensionFactory 实例
+
+
+- Class<?> type = interface com.alibaba.dubbo.rpc.Protocol;
+- ExtensionFactory objectFactory = AdaptiveExtensionFactory（适配类）;
+       -- factories = [SpiExtensionFactory实例, SpringExtensionFactory实例]
+- Map<Class<?>, String> cachedNames
+    -- "class com.alibaba.dubbo.registry.integration.RegistryProtocol" -> "registry"
+    -- "class com.alibaba.dubbo.rpc.protocol.injvm.InjvmProtocol" -> "injvm"
+    -- "class com.alibaba.dubbo.rpc.protocol.dubbo.DubboProtocol" -> "dubbo"
+    -- "class com.alibaba.dubbo.rpc.support.MockProtocol" -> "mock"
+- Holder<Map<String, Class<?>>> cachedClasses = new Holder<Map<String, Class<?>>>();
+     -- "registry" -> "class com.alibaba.dubbo.registry.integration.RegistryProtocol"
+     -- "injvm" -> "class com.alibaba.dubbo.rpc.protocol.injvm.InjvmProtocol"
+     -- "dubbo" -> "class com.alibaba.dubbo.rpc.protocol.dubbo.DubboProtocol"
+     -- "mock" -> "class com.alibaba.dubbo.rpc.support.MockProtocol"
+- Map<String, Activate> cachedActivates
+- Map<String, Holder<Object>> cachedInstances
+    -- "dubbo" ->
+- Holder<Object> cachedAdaptiveInstance
+- Class<?> cachedAdaptiveClass = null;
+- String cachedDefaultName = 'dubbo';
+- Throwable createAdaptiveInstanceError;
+
+
+- Set<Class<?>> cachedWrapperClasses;
+    -- class com.alibaba.dubbo.rpc.protocol.ProtocolFilterWrapper
+    -- class com.alibaba.dubbo.rpc.protocol.ProtocolListenerWrapper
+- Map<String, IllegalStateException> exceptions

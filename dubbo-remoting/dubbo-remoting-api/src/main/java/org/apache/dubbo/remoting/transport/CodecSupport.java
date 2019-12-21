@@ -72,6 +72,8 @@ public class CodecSupport {
     }
 
     public static Serialization getSerialization(URL url) {
+
+        //serialization  hessian2
         return ExtensionLoader.getExtensionLoader(Serialization.class).getExtension(
                 url.getParameter(Constants.SERIALIZATION_KEY, Constants.DEFAULT_REMOTING_SERIALIZATION));
     }

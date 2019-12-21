@@ -57,6 +57,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
 
     static void handleResponse(Channel channel, Response response) throws RemotingException {
         if (response != null && !response.isHeartbeat()) {
+            System.out.println("============HeaderExchangeHandler#handleResponse========="+Thread.currentThread());
             DefaultFuture.received(channel, response);
         }
     }
@@ -75,7 +76,9 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         }
     }
 
+
     void handleRequest(final ExchangeChannel channel, Request req) throws RemotingException {
+        System.out.println("========服务端处理来自客户端请求=========");
         Response res = new Response(req.getId(), req.getVersion());
         if (req.isBroken()) {
             Object data = req.getData();
@@ -97,6 +100,10 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         // find handler by message class.
         Object msg = req.getData();
         try {
+            // handle data.
+            //DubboProtocol$ExchangeHandler.reply(ExchangeChannel channel, Object message)
+            System.out.println("========DubboProtocol内部类ExchangeHandler处理==============");
+            //这里的message就是上边的RpcInvocation
             CompletionStage<Object> future = handler.reply(channel, msg);
             future.whenComplete((appResult, t) -> {
                 try {
@@ -107,6 +114,8 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                         res.setStatus(Response.SERVICE_ERROR);
                         res.setErrorMessage(StringUtils.toString(t));
                     }
+                    //响应结果返回给客户端，这里的channel是NettyChannel，执行NettyChannel的send方法，
+                    // 其调用NioAcceptedSocketChannel.write(Object message)将消息写会给客户端
                     channel.send(res);
                 } catch (RemotingException e) {
                     logger.warn("Send result to consumer failed, channel is " + channel + ", msg is " + e);
@@ -172,13 +181,17 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                 handlerEvent(channel, request);
             } else {
                 if (request.isTwoWay()) {
+                    //处理结果
                     handleRequest(exchangeChannel, request);
                 } else {
                     handler.received(exchangeChannel, request.getData());
                 }
             }
+
         } else if (message instanceof Response) {
+            //处理响应
             handleResponse(channel, (Response) message);
+
         } else if (message instanceof String) {
             if (isClientSide(channel)) {
                 Exception e = new Exception("Dubbo client can not supported string message: " + message + " in channel: " + channel + ", url: " + channel.getUrl());

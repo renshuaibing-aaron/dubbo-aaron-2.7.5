@@ -27,6 +27,7 @@ import org.apache.dubbo.rpc.RpcException;
  */
 public class InvokerWrapper<T> implements Invoker<T> {
 
+    ////ListenerInvokerWrapper
     private final Invoker<T> invoker;
 
     private final URL url;
@@ -53,6 +54,8 @@ public class InvokerWrapper<T> implements Invoker<T> {
 
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
+        System.out.println("============InvokerWrapper 的 invoke 方法===============");
+        // 调用 ListenerInvokerWrapper 的 invoke 方法
         return invoker.invoke(invocation);
     }
 

@@ -74,11 +74,14 @@ public abstract class Proxy {
      * @return Proxy instance.
      */
     public static Proxy getProxy(ClassLoader cl, Class<?>... ics) {
+
+        // 代理接口上线不能超过 65535 个
         if (ics.length > MAX_PROXY_COUNT) {
             throw new IllegalArgumentException("interface limit exceeded");
         }
 
         StringBuilder sb = new StringBuilder();
+        // 遍历接口列表
         for (int i = 0; i < ics.length; i++) {
             String itf = ics[i].getName();
             if (!ics[i].isInterface()) {
@@ -87,6 +90,7 @@ public abstract class Proxy {
 
             Class<?> tmp = null;
             try {
+                // 重新加载接口类
                 tmp = Class.forName(itf, false, cl);
             } catch (ClassNotFoundException e) {
             }
@@ -94,7 +98,7 @@ public abstract class Proxy {
             if (tmp != ics[i]) {
                 throw new IllegalArgumentException(ics[i] + " is not visible from class loader");
             }
-
+            // 以";"拼接所有的接口全限定名（带上包路径的接口)
             sb.append(itf).append(';');
         }
 
@@ -110,6 +114,7 @@ public abstract class Proxy {
         Proxy proxy = null;
         synchronized (cache) {
             do {
+                // 缓存中获取 Reference<Proxy> 实例
                 Object value = cache.get(key);
                 if (value instanceof Reference<?>) {
                     proxy = (Proxy) ((Reference<?>) value).get();
@@ -117,24 +122,27 @@ public abstract class Proxy {
                         return proxy;
                     }
                 }
-
+                // 并发锁控制，只有一个线程可以操作
                 if (value == PENDING_GENERATION_MARKER) {
                     try {
+                        // 其他线程等待
                         cache.wait();
                     } catch (InterruptedException e) {
                     }
                 } else {
+                    // 放置标志位到缓存中，并跳出 while 循环进行后续操作
                     cache.put(key, PENDING_GENERATION_MARKER);
                     break;
                 }
             }
             while (true);
         }
-
+        // 代理类计数器自增
         long id = PROXY_CLASS_COUNTER.getAndIncrement();
         String pkg = null;
         ClassGenerator ccp = null, ccm = null;
         try {
+            // 创建 ClassGenerator 对象
             ccp = ClassGenerator.newInstance(cl);
 
             Set<String> worked = new HashSet<>();
@@ -142,11 +150,14 @@ public abstract class Proxy {
 
             for (int i = 0; i < ics.length; i++) {
                 if (!Modifier.isPublic(ics[i].getModifiers())) {
+                    // 接口访问级别非public
+                    // 获取接口包名
                     String npkg = ics[i].getPackage().getName();
                     if (pkg == null) {
                         pkg = npkg;
                     } else {
                         if (!pkg.equals(npkg)) {
+                            // 非public级别的接口必须在同一包路径下
                             throw new IllegalArgumentException("non-public interfaces from different packages");
                         }
                     }
@@ -186,6 +197,7 @@ public abstract class Proxy {
             }
 
             // create ProxyInstance class.
+            //会生成两个Class对象：clazz是真实对象的代理类
             String pcn = pkg + ".proxy" + id;
             ccp.setClassName(pcn);
             ccp.addField("public static java.lang.reflect.Method[] methods;");
@@ -195,7 +207,10 @@ public abstract class Proxy {
             Class<?> clazz = ccp.toClass();
             clazz.getField("methods").set(null, methods.toArray(new Method[0]));
 
+            ccp.getClassPool().get(pcn).debugWriteFile("E:\\ccp\\");
+
             // create Proxy class.
+            //pc是创建代理类的工厂类
             String fcn = Proxy.class.getName() + id;
             ccm = ClassGenerator.newInstance(cl);
             ccm.setClassName(fcn);
@@ -203,6 +218,10 @@ public abstract class Proxy {
             ccm.setSuperClass(Proxy.class);
             ccm.addMethod("public Object newInstance(" + InvocationHandler.class.getName() + " h){ return new " + pcn + "($1); }");
             Class<?> pc = ccm.toClass();
+
+            // 在 E 盘ccm目录下输出 Proxy 实现类
+            ccm.getClassPool().get(fcn).debugWriteFile("E:\\ccm\\");
+
             proxy = (Proxy) pc.newInstance();
         } catch (RuntimeException e) {
             throw e;

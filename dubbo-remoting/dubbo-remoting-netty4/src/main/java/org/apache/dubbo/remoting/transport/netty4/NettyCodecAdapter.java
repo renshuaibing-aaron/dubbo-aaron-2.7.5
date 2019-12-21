@@ -63,9 +63,13 @@ final public class NettyCodecAdapter {
 
         @Override
         protected void encode(ChannelHandlerContext ctx, Object msg, ByteBuf out) throws Exception {
+            //编码
+             // 创建一个buffer
             org.apache.dubbo.remoting.buffer.ChannelBuffer buffer = new NettyBackedChannelBuffer(out);
             Channel ch = ctx.channel();
+
             NettyChannel channel = NettyChannel.getOrAddChannel(ch, url, handler);
+            //DubboCountCodec
             codec.encode(channel, buffer, msg);
         }
     }

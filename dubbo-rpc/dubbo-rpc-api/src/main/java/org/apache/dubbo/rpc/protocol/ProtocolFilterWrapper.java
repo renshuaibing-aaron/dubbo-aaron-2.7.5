@@ -49,6 +49,17 @@ public class ProtocolFilterWrapper implements Protocol {
         this.protocol = protocol;
     }
 
+    /**
+     * 组建invoker链，实际上只有最后一个是真正的AbstractProxyInvoker实例，前边的都是filter
+     *              invoker:AbstractProxyInvoker实例
+     *              key：service.filter
+     *              group：provider
+     * @param invoker
+     * @param key
+     * @param group
+     * @param <T>
+     * @return
+     */
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;
         List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class).getActivateExtension(invoker.getUrl(), key, group);
@@ -148,6 +159,7 @@ public class ProtocolFilterWrapper implements Protocol {
         if (UrlUtils.isRegistry(url)) {
             return protocol.refer(type, url);
         }
+        //reference.filter和consumer
         return buildInvokerChain(protocol.refer(type, url), REFERENCE_FILTER_KEY, CommonConstants.CONSUMER);
     }
 

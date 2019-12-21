@@ -35,6 +35,7 @@ public class WrappedChannelHandler implements ChannelHandlerDelegate {
 
     protected static final Logger logger = LoggerFactory.getLogger(WrappedChannelHandler.class);
 
+    //DecodeHandler
     protected final ChannelHandler handler;
 
     protected final URL url;

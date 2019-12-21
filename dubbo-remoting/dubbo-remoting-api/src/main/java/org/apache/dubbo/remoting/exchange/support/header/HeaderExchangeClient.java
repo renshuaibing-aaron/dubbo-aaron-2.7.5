@@ -42,10 +42,12 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 
 /**
  * DefaultMessageClient
+ * // HeaderExchangeClient 中主要封装了一些关于心跳检测逻辑
  */
 public class HeaderExchangeClient implements ExchangeClient {
 
     private final Client client;
+    //HeaderExchangeChannel
     private final ExchangeChannel channel;
 
     private static final HashedWheelTimer IDLE_CHECK_TIMER = new HashedWheelTimer(
@@ -82,6 +84,7 @@ public class HeaderExchangeClient implements ExchangeClient {
 
     @Override
     public CompletableFuture<Object> request(Object request, int timeout) throws RemotingException {
+        // 调用 HeaderExchangeChannel 的 request 方法
         return channel.request(request, timeout);
     }
 
@@ -92,6 +95,7 @@ public class HeaderExchangeClient implements ExchangeClient {
 
     @Override
     public CompletableFuture<Object> request(Object request, int timeout, ExecutorService executor) throws RemotingException {
+        //HeaderExchangeChannel
         return channel.request(request, timeout, executor);
     }
 

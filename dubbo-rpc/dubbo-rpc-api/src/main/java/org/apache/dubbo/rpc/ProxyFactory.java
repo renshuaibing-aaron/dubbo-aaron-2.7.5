@@ -24,15 +24,17 @@ import static org.apache.dubbo.rpc.Constants.PROXY_KEY;
 
 /**
  * ProxyFactory. (API/SPI, Singleton, ThreadSafe)
+ * 代理工厂接口
  */
 @SPI("javassist")
 public interface ProxyFactory {
 
     /**
-     * create proxy.
+     * 使用端：consumer
      *
-     * @param invoker
-     * @return proxy
+     * 创造一个代理，用于服务引用创建代理
+     * @param invoker 会被proxy调用的第一层Invoker，默认是 MockClusterInvoker
+     * @return proxy 代理对象
      */
     @Adaptive({PROXY_KEY})
     <T> T getProxy(Invoker<T> invoker) throws RpcException;
@@ -47,13 +49,16 @@ public interface ProxyFactory {
     <T> T getProxy(Invoker<T> invoker, boolean generic) throws RpcException;
 
     /**
-     * create invoker.
+     * 使用端：provider
      *
-     * @param <T>
-     * @param proxy
-     * @param type
-     * @param url
-     * @return invoker
+     * 创建一个Invoker，默认是代理Invoker -- AbstractProxyInvoker 的子类对象
+     * @param <T> 接口 eg. com.alibaba.dubbo.demo.DemoService
+     * @param proxy ref实例, eg. emoServiceImpl实例
+     * @param type interface eg. com.alibaba.dubbo.demo.DemoService
+     * @param url --
+     *       injvm://127.0.0.1/com.alibaba.dubbo.demo.DemoService?anyhost=true...
+     *       registry://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService?application=demo-provider...&export=dubbo://10.213.11.98:20880/com.alibaba.dubbo.demo.DemoService?anyhost=true...
+     * @return invoker，默认是代理Invoker -- AbstractProxyInvoker 的子类对象
      */
     @Adaptive({PROXY_KEY})
     <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) throws RpcException;

@@ -60,6 +60,7 @@ public class ThreadlessExecutor extends AbstractExecutorService {
     public void waitAndDrain() throws InterruptedException {
         Runnable runnable = queue.take();
 
+        System.out.println("========这里是什么线程执行体==========="+runnable);
         synchronized (lock) {
             waiting = false;
             runnable.run();

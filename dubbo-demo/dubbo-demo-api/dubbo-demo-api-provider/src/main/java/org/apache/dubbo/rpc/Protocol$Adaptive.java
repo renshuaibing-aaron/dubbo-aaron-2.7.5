@@ -27,6 +27,7 @@ public class Protocol$Adaptive implements Protocol {
             throw new IllegalStateException("Failed to get extension (org.apache.dubbo.rpc.Protocol) name from url (" + url.toString() + ") use keys([protocol])");
         }
         Protocol extension = (Protocol) ExtensionLoader.getExtensionLoader(Protocol.class).getExtension(extName);
+       //注意此时获取的是包装类ProtocolFilterWrapper
         return extension.export(arg0);
     }
 

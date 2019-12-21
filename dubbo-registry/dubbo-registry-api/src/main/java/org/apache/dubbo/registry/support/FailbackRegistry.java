@@ -226,6 +226,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         return failedNotified;
     }
 
+    //内部调用子类ZookeeperRegistry的doRegister()，如果失败，加入注册失败列表（会被修复线程后台重新注册）。
     @Override
     public void register(URL url) {
         if (!acceptable(url)) {
@@ -237,11 +238,14 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         removeFailedUnregistered(url);
         try {
             // Sending a registration request to the server side
+            // 向服务器端发送注册请求
+            //ZookeeperRegistry的doRegister方法
             doRegister(url);
         } catch (Exception e) {
             Throwable t = e;
 
             // If the startup detection is opened, the Exception is thrown directly.
+            // 如果开启了启动时检测，则直接抛出异常
             boolean check = getUrl().getParameter(Constants.CHECK_KEY, true)
                     && url.getParameter(Constants.CHECK_KEY, true)
                     && !CONSUMER_PROTOCOL.equals(url.getProtocol());
@@ -256,6 +260,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             }
 
             // Record a failed registration request to a failed list, retry regularly
+            // 将失败的注册请求记录到失败列表，定时重试
             addFailedRegistered(url);
         }
     }
@@ -296,6 +301,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         removeFailedSubscribed(url, listener);
         try {
             // Sending a subscription request to the server side
+            // 向服务器端发送订阅请求
             doSubscribe(url, listener);
         } catch (Exception e) {
             Throwable t = e;
@@ -320,6 +326,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             }
 
             // Record a failed registration request to a failed list, retry regularly
+            // 将失败的订阅请求记录到失败列表，定时重试
             addFailedSubscribed(url, listener);
         }
     }

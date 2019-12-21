@@ -44,15 +44,18 @@ import static org.apache.dubbo.rpc.Constants.STUB_KEY;
 
 /**
  * StubProxyFactoryWrapper
+ * 代理工厂装饰类（封装了对 stub 和 local 的处理逻辑），会在获取 ProxyFactory 具体子类时进行 AOP
  */
 public class StubProxyFactoryWrapper implements ProxyFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(StubProxyFactoryWrapper.class);
 
+    // 真正的ProxyFactory具体子类（JavassistProxyFactory/JdkProxyFactory）
     private final ProxyFactory proxyFactory;
 
     private Protocol protocol;
 
+    // 具有父类SPI接口（ProxyFactory）的单参构造器，所以该类是一个Wrapper类，会在getExtension获取ProxyFactory具体子类时进行aop
     public StubProxyFactoryWrapper(ProxyFactory proxyFactory) {
         this.proxyFactory = proxyFactory;
     }
@@ -61,18 +64,26 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
         this.protocol = protocol;
     }
 
+    /**
+     * 使用端：consumer
+     */
     @Override
     public <T> T getProxy(Invoker<T> invoker, boolean generic) throws RpcException {
-        return proxyFactory.getProxy(invoker, generic);
+        // 1. 调用 ProxyFactory 获取代理
+        T proxy = proxyFactory.getProxy(invoker, generic);
+        return  proxy;
     }
 
+    /**
+     * 使用端：consumer
+     */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> T getProxy(Invoker<T> invoker) throws RpcException {
 
-        //关键这里的invoker是什么东西，包含哪些内容？？
-        System.out.println("========获取动态代理类=========="+invoker.getClass());
+        // 1. 调用 ProxyFactory 获取代理
         T proxy = proxyFactory.getProxy(invoker);
+        // 2. 如果不是泛化接口，处理 stub 和 local
         if (GenericService.class != invoker.getInterface()) {
             URL url = invoker.getUrl();
             String stub = url.getParameter(STUB_KEY, url.getParameter(LOCAL_KEY));
@@ -116,6 +127,9 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
         return proxy;
     }
 
+    /**
+     * 使用端：provider
+     */
     @Override
     public <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) throws RpcException {
         return proxyFactory.getInvoker(proxy, type, url);

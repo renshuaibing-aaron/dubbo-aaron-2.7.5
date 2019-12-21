@@ -46,6 +46,7 @@ public class NettyHandler extends SimpleChannelHandler {
 
     private final URL url;
 
+    ////NettyServer
     private final ChannelHandler handler;
 
     public NettyHandler(URL url, ChannelHandler handler) {
@@ -97,8 +98,11 @@ public class NettyHandler extends SimpleChannelHandler {
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+        System.out.println("=======服务端接收请求消息===========");
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.getChannel(), url, handler);
         try {
+            //NettyServer
+            //首先会执行NettyServer父类AbstractPeer的received方法，其调用MultiMessageHandler.received
             handler.received(channel, e.getMessage());
         } finally {
             NettyChannel.removeChannelIfDisconnected(ctx.getChannel());

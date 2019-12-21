@@ -39,6 +39,7 @@ public class ZookeeperRegistryFactory extends AbstractRegistryFactory {
 
     @Override
     public Registry createRegistry(URL url) {
+        //这里的zookeeperTransporter为ZookeeperTransporter$Adaptive实例
         return new ZookeeperRegistry(url, zookeeperTransporter);
     }
 

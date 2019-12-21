@@ -48,6 +48,7 @@ public class ProxyFactory$Adaptive implements ProxyFactory {
             throw new IllegalStateException("Failed to get extension (org.apache.dubbo.rpc.ProxyFactory) name from url (" + url.toString() + ") use keys([proxy])");
         }
         ProxyFactory extension = (ProxyFactory) ExtensionLoader.getExtensionLoader(ProxyFactory.class).getExtension(extName);
+        //getProxy内部最终得到是一个被StubProxyFactoryWrapper包装后的JavassistProxyFactory
         return extension.getProxy(arg0);
     }
 }

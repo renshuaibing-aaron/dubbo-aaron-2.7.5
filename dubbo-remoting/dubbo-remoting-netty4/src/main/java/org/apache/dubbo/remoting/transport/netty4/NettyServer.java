@@ -77,6 +77,7 @@ public class NettyServer extends AbstractServer implements RemotingServer {
     public NettyServer(URL url, ChannelHandler handler) throws RemotingException {
         // you can customize name and type of client thread pool by THREAD_NAME_KEY and THREADPOOL_KEY in CommonConstants.
         // the handler will be warped: MultiMessageHandler->HeartbeatHandler->handler
+        // 调用父类的构造方法
         super(ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME), ChannelHandlers.wrap(handler, url));
     }
 
@@ -87,8 +88,10 @@ public class NettyServer extends AbstractServer implements RemotingServer {
      */
     @Override
     protected void doOpen() throws Throwable {
+        // 创建 ServerBootstrap
         bootstrap = new ServerBootstrap();
 
+        // 创建 boss 和 worker 线程池
         bossGroup = new NioEventLoopGroup(1, new DefaultThreadFactory("NettyServerBoss", true));
         workerGroup = new NioEventLoopGroup(getUrl().getPositiveParameter(IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS),
                 new DefaultThreadFactory("NettyServerWorker", true));

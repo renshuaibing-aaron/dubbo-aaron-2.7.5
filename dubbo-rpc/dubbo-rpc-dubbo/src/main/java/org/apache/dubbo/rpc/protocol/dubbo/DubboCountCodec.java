@@ -37,14 +37,19 @@ public final class DubboCountCodec implements Codec2 {
 
     @Override
     public void encode(Channel channel, ChannelBuffer buffer, Object msg) throws IOException {
+        //ExchangeCodec
         codec.encode(channel, buffer, msg);
     }
 
     @Override
     public Object decode(Channel channel, ChannelBuffer buffer) throws IOException {
+        System.out.println("========，解码入口===========");
+        // 获取读取位置
         int save = buffer.readerIndex();
+        // 构建 MultiMessage 对象
         MultiMessage result = MultiMessage.create();
         do {
+            // 调用 ExchangeCodec 的 decode 方法对请求解码
             Object obj = codec.decode(channel, buffer);
             if (Codec2.DecodeResult.NEED_MORE_INPUT == obj) {
                 buffer.readerIndex(save);

@@ -29,7 +29,9 @@ public class ServiceBeanPostProcessor implements BeanPostProcessor {
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+
         if (bean instanceof ServiceBean) {
+            System.out.println("=========dubbo导出的时机============");
             ((ServiceBean) bean).export();
         }
         return bean;

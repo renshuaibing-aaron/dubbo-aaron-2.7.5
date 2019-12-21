@@ -51,8 +51,10 @@ public class Transporters {
         if (handlers.length == 1) {
             handler = handlers[0];
         } else {
+            // 如果 ChannelHandler 数量大于1，则创建 ChannelHandler 派发器
             handler = new ChannelHandlerDispatcher(handlers);
         }
+        // getTransporter() 获取的 Transporter 默认是 NettyTransporter（根据SPI注解参数配置决定）
         return getTransporter().bind(url, handler);
     }
 

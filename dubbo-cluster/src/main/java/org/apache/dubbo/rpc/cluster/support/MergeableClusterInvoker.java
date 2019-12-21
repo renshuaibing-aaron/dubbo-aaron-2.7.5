@@ -93,6 +93,7 @@ public class MergeableClusterInvoker<T> extends AbstractClusterInvoker<T> {
         for (final Invoker<T> invoker : invokers) {
             RpcInvocation subInvocation = new RpcInvocation(invocation, invoker);
             subInvocation.setAttachment(ASYNC_KEY, "true");
+            System.out.println("--------------------ceshiceshiceshi-------------------");
             results.put(invoker.getUrl().getServiceKey(), invoker.invoke(subInvocation));
         }
 

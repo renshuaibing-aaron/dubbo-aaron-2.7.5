@@ -27,6 +27,7 @@ import java.lang.reflect.Proxy;
 
 /**
  * JdkRpcProxyFactory
+ * 基于 JDK 动态代理实现的代理工厂
  */
 public class JdkProxyFactory extends AbstractProxyFactory {
 

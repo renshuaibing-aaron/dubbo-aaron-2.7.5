@@ -40,6 +40,7 @@ import static org.springframework.beans.factory.BeanFactoryUtils.beansOfTypeIncl
 
 /**
  * ReferenceFactoryBean
+ * 由于ReferenceBean是一个FactoryBean，所以这里会通过FactoryBean.getObject方法获取Bean
  */
 public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         ApplicationContextAware, InitializingBean, DisposableBean {
@@ -64,6 +65,7 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
 
     @Override
     public Object getObject() {
+        System.out.println("=====2、ReferenceBean 对应的服务被注入到其他类中时引用（懒汉式）================");
         return get();
     }
 
@@ -98,6 +100,7 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
     @SuppressWarnings({"unchecked"})
     public void afterPropertiesSet() throws Exception {
 
+        System.out.println("=====Spring 容器调用 ReferenceBean 的 afterPropertiesSet 方法时引用服务（饿汉式）================");
         // Initializes Dubbo's Config Beans before @Reference bean autowiring
         prepareDubboConfigBeans();
 

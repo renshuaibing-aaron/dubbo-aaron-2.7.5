@@ -45,6 +45,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
 
     private static final String CHANNEL_KEY = HeaderExchangeChannel.class.getName() + ".CHANNEL";
 
+    //NettyClient
     private final Channel channel;
 
     private volatile boolean closed = false;
@@ -95,8 +96,11 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         if (message instanceof Request
                 || message instanceof Response
                 || message instanceof String) {
+
             channel.send(message, sent);
         } else {
+            // create request.
+            System.out.println("======服务端发送数据=========");
             Request request = new Request();
             request.setVersion(Version.getProtocolVersion());
             request.setTwoWay(false);
@@ -112,6 +116,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
 
     @Override
     public CompletableFuture<Object> request(Object request, int timeout) throws RemotingException {
+
         return request(request, timeout, null);
     }
 
@@ -126,17 +131,39 @@ final class HeaderExchangeChannel implements ExchangeChannel {
             throw new RemotingException(this.getLocalAddress(), null, "Failed to send request " + request + ", cause: The channel " + this + " is closed!");
         }
         // create request.
+        // 创建 org.apache.dubbo.remoting.exchange.Request 对象
         Request req = new Request();
         req.setVersion(Version.getProtocolVersion());
+        // 设置双向通信标志为 true
         req.setTwoWay(true);
+        // 这里的 request 变量类型为 RpcInvocation
         req.setData(request);
+
+        //netty是一个异步非阻塞的框架，所以当执行channel.send(req);的时候，
+        // 当其内部执行到netty发送消息时，不会等待结果，直接返回。为了实现“异步转为同步”，使用了DefaultFuture这个辅助类
+        // 创建 DefaultFuture 对象
         DefaultFuture future = DefaultFuture.newFuture(channel, req, timeout, executor);
+
         try {
+            //NettyClient
+            //channel是NettyClient实例，这里的send实际上是调用其父类AbstractClient的父类AbstractPeer，AbstractPeer调用AbstractClient.send
+           //异步非阻塞的框架
             channel.send(req);
         } catch (RemotingException e) {
             future.cancel();
             throw e;
         }
+
+        /**
+         * 在还没有等到客户端的响应回来的时候，就直接将future返回了。返回给谁？
+         * 再来看HeaderExchangeChannel.request(Object request, int timeout)的调用者
+         * 1                   -->DubboInvoker.doInvoke(final Invocation invocation)
+         * 2                     //获取ExchangeClient进行消息的发送
+         * 3                     -->ReferenceCountExchangeClient.request(Object request, int timeout)
+         * 4                       -->HeaderExchangeClient.request(Object request, int timeout)
+         * 5                         -->HeaderExchangeChannel.request(Object request, int timeout)
+         */
+
         return future;
     }
 

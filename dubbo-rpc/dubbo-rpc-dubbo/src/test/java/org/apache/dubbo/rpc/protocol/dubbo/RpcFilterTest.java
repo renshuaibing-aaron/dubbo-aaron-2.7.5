@@ -40,7 +40,7 @@ public class RpcFilterTest {
     }
 
     @Test
-    public void testRpcFilter() throws Exception {
+    public void testRpcFilter() throws Throwable {
         DemoService service = new DemoServiceImpl();
         URL url = URL.valueOf("dubbo://127.0.0.1:9010/org.apache.dubbo.rpc.protocol.dubbo.support.DemoService?service.filter=echo");
         ApplicationModel.getServiceRepository().registerService(DemoService.class);

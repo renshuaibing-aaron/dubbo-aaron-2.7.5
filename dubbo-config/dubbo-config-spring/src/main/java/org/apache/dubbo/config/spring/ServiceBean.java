@@ -33,6 +33,7 @@ import org.springframework.context.ApplicationEventPublisherAware;
 
 /**
  * ServiceFactoryBean
+ * 这个类是spring通过解析<dubbo:service>节点创建的单例Bean，每一个<dubbo:service>都会创建一个ServiceBean
  *
  * @export
  */
@@ -61,14 +62,31 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
         this.service = service;
     }
 
+    /**
+     *
+     * ApplicationContextAware接口的方法
+     * 1.将applicationContext设置到SpringExtensionFactory中,用于后续从SpringExtensionFactory中获取Bean
+     * 2.获取方法addApplicationListener(ApplicationListener<?> listener),
+     * 之后将当前类（因为当前类监听了ContextRefreshedEvent事件）加入spring的监听器列表
+     * @param applicationContext
+     */
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
+
+
+        // ApplicationContextAware 接口实现
         this.applicationContext = applicationContext;
+        // 设置应用上下文
         SpringExtensionFactory.addApplicationContext(applicationContext);
     }
 
+    /**
+     * BeanNameAware接口的方法
+     * @param name
+     */
     @Override
     public void setBeanName(String name) {
+        // 获取Spring容器中的 beanId，即 BeanNameAware 接口实现
         this.beanName = name;
     }
 

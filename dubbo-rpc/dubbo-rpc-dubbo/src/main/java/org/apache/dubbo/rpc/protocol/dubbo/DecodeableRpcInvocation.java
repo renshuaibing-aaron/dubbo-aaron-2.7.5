@@ -96,19 +96,23 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
 
     @Override
     public Object decode(Channel channel, InputStream input) throws IOException {
+        // 反序列化 url 数据
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
 
+        // 通过反序列化得到 dubbo version，并保存到 attachments 变量中
         String dubboVersion = in.readUTF();
         request.setVersion(dubboVersion);
         setAttachment(DUBBO_VERSION_KEY, dubboVersion);
 
         String path = in.readUTF();
+        // 通过反序列化得到 path 和 version，并保存到 attachments 变量中
         setAttachment(PATH_KEY, path);
         setAttachment(VERSION_KEY, in.readUTF());
-
+        // 通过反序列化得到 方法名，并设置到 RpcInvocation中
         setMethodName(in.readUTF());
 
+        // 通过反序列化得到参数类型字符串，比如 Ljava/lang/String;
         String desc = in.readUTF();
         setParameterTypesDesc(desc);
 
@@ -128,6 +132,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                         this.setReturnTypes(methodDescriptor.getReturnTypes());
                     }
                 }
+                // 将 desc 解析为参数类型数组
                 if (pts == DubboCodec.EMPTY_CLASS_ARRAY) {
                     pts = ReflectUtils.desc2classArray(desc);
                 }
@@ -136,6 +141,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 args = new Object[pts.length];
                 for (int i = 0; i < args.length; i++) {
                     try {
+                        // 解析运行时参数，即方法传入参数
                         args[i] = in.readObject(pts[i]);
                     } catch (Exception e) {
                         if (log.isWarnEnabled()) {
@@ -144,23 +150,27 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                     }
                 }
             }
+            // 设置参数类型数组
             setParameterTypes(pts);
 
+            // 通过反序列化得到原 attachment 的内容
             Map<String, Object> map = in.readAttachments();
             if (map != null && map.size() > 0) {
                 Map<String, Object> attachment = getAttachments();
                 if (attachment == null) {
                     attachment = new HashMap<String, Object>();
                 }
+                // 将 map 与当前对象中的 attachment 集合进行合并
                 attachment.putAll(map);
                 setAttachments(attachment);
             }
 
             //decode argument ,may be callback
             for (int i = 0; i < args.length; i++) {
+                // 对 callback 类型的参数进行处理
                 args[i] = decodeInvocationArgument(channel, this, pts, i, args[i]);
             }
-
+            // 设置方法传入参数列表
             setArguments(args);
             String targetServiceName = buildKey((String) getAttachment(PATH_KEY),
                     (String) getAttachment(GROUP_KEY),

@@ -30,9 +30,14 @@ public class XmlConsumerApplication {
     public static void main(String[] args) throws Exception {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
         context.start();
-        DemoService demoService = context.getBean("demoService", DemoService.class);
 
-        String world = demoService.sayHello("world");
+        // 获取远程服务代理
+       DemoService demoService = context.getBean("demoService", DemoService.class);
+
+        // 执行远程方法
+      String world = demoService.sayHello("world");
+
+        // 显示调用结果
         System.out.println("消费者结果: " + world);
     }
 }

@@ -50,6 +50,7 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
 
     private volatile URL consumerUrl;
 
+    //优化
     protected RouterChain<T> routerChain;
 
     public AbstractDirectory(URL url) {
@@ -66,6 +67,7 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
         }
 
         if (UrlUtils.isRegistry(url)) {
+            // protocol 协议是 registry 时，解码获取 refer 参数值并设置到 url 中，同时移除 monitor 参数
             Map<String, String> queryMap = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
             this.url = url.addParameters(queryMap).removeParameter(MONITOR_KEY);
         } else {
@@ -73,6 +75,7 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
         }
 
         this.consumerUrl = consumerUrl;
+        // 设置路由链
         setRouterChain(routerChain);
     }
 
@@ -82,6 +85,8 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
             throw new RpcException("Directory already destroyed .url: " + getUrl());
         }
 
+        //RegistryDirectory.doList(Invocation invocation)
+        //是模板方法
         return doList(invocation);
     }
 

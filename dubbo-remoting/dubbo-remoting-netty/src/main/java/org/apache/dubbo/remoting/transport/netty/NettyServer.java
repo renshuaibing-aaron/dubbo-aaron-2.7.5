@@ -74,7 +74,9 @@ public class NettyServer extends AbstractServer implements RemotingServer {
         ChannelFactory channelFactory = new NioServerSocketChannelFactory(boss, worker, getUrl().getPositiveParameter(IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS));
         bootstrap = new ServerBootstrap(channelFactory);
 
+        //handler中进行消息的接收处理和发送
         final NettyHandler nettyHandler = new NettyHandler(getUrl(), this);
+
         channels = nettyHandler.getChannels();
         // https://issues.jboss.org/browse/NETTY-365
         // https://issues.jboss.org/browse/NETTY-379

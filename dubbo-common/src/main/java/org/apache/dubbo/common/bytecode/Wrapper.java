@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 
 /**
- * Wrapper.
+ * wrapper.
  */
 public abstract class Wrapper {
     private static final Map<Class<?>, Wrapper> WRAPPER_MAP = new ConcurrentHashMap<Class<?>, Wrapper>(); //class wrapper map
@@ -101,23 +101,39 @@ public abstract class Wrapper {
      * get wrapper.
      *
      * @param c Class instance.
-     * @return Wrapper instance(not null).
+     * @return wrapper instance(not null).
      */
     public static Wrapper getWrapper(Class<?> c) {
         while (ClassGenerator.isDynamicClass(c)) // can not wrapper on dynamic class.
         {
             c = c.getSuperclass();
         }
-
+        // 缓存中获取 Wrapper
         if (c == Object.class) {
             return OBJECT_WRAPPER;
         }
-
+        // 缓存中不存在 Wrapper时，创建 Wrapper
         return WRAPPER_MAP.computeIfAbsent(c, key -> makeWrapper(key));
     }
 
+    /**
+     * 1）、获取 public 类型的字段，并为所有字段生成条件判断语句、赋值语句和返回语句代码
+     *
+     * 2)、类中所有声明的方法生成方法名判断语句、重载方法生成方法参数类型检测、根据返回值类型生成目标方法调用语句、异常捕获代码
+     *
+     * 3）、匹配以 set、get、is、has、can 方法开头的所有方法，生成这些方法的属性名判断及返回语句代码
+     *
+     * 4）、设置类名、超类、默认构造方法、字段代码和方法代码后使用 ClassGenerator 类生成器将代码生成类对象
+     *
+     * 5）、 类设置字段值，创建 Wrapper 实例并返回
+     *
+     * 6）、清除资源
+     * @param c
+     * @return
+     */
     private static Wrapper makeWrapper(Class<?> c) {
         if (c.isPrimitive()) {
+            // 如果 c 是否为基本类型，若是则抛出异常
             throw new IllegalArgumentException("Can not create wrapper for primitive type: " + c);
         }
 

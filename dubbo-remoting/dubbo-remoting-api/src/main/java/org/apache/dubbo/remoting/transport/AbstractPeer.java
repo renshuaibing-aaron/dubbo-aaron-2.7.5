@@ -52,8 +52,12 @@ public abstract class AbstractPeer implements Endpoint, ChannelHandler {
     public void send(Object message) throws RemotingException {
 
         System.out.println("=====AbstractPeer#send===============");
-        send(message, url.getParameter(Constants.SENT_KEY, false));
+        // 调用 AbstractClient 的 send 发送请求
+        boolean parameter = url.getParameter(Constants.SENT_KEY, false);
+        send(message, parameter);
+
     }
+
 
     @Override
     public void close() {
@@ -146,6 +150,7 @@ public abstract class AbstractPeer implements Endpoint, ChannelHandler {
         if (closed) {
             return;
         }
+        // 调用 MultiMessageHandler 的 received 方法接收数据
         handler.received(ch, msg);
     }
 

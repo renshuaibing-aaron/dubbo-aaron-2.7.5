@@ -170,11 +170,16 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         if (needReconnect && !isConnected()) {
             connect();
         }
+        // 获取 Channel，getChannel 是一个抽象方法，具体由子类实现，dubbo默认使用的是 netty，
+        // 因此这里调用的是 org.apache.dubbo.remoting.transport.netty4.NettyClient 的 getChannel 方法
         Channel channel = getChannel();
         //TODO Can the value returned by getChannel() be null? need improvement.
         if (channel == null || !channel.isConnected()) {
             throw new RemotingException(this, "message can not send, because channel is closed . url:" + getUrl());
         }
+        // 调用 NettyChannel 的 send 方法发送请求
+        //message class org.apache.dubbo.remoting.exchange.Request
+        System.out.println("=====调用 NettyChannel 的 send 方法发送请求=#message========"+message);
         channel.send(message, sent);
     }
 

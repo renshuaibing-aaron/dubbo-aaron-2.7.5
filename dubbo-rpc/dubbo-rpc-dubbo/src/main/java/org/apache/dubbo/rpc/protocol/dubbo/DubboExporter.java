@@ -37,6 +37,11 @@ public class DubboExporter<T> extends AbstractExporter<T> {
      */
     private final Map<String, Exporter<?>> exporterMap;
 
+    /**
+     * @param invoker  invoker：经过filter包装的InvokerDelegete实例
+     * @param key key:com.alibaba.dubbo.demo.DemoService:20880 (group/path:version:port)
+     * @param exporterMap exporterMap:传入时为空，构造器执行后又执行了put，为{"com.alibaba.dubbo.demo.DemoService:20880", 当前的DubboExporter实例}
+     */
     public DubboExporter(Invoker<T> invoker, String key, Map<String, Exporter<?>> exporterMap) {
         // 存储该 DubboExporter 实例管理的 Invoker 实例
         super(invoker);

@@ -41,8 +41,11 @@ import static org.apache.dubbo.rpc.protocol.dubbo.Constants.LAZY_CONNECT_INITIAL
 final class ReferenceCountExchangeClient implements ExchangeClient {
 
     private final URL url;
+    // ReferenceCountExchangeClient 内部仅实现了一个引用计数的功能,它定义了一个引用计数变量 referenceCount，
+    // 每当该对象被引用一次 referenceCount 都会进行自增。每当 close 方法被调用时，referenceCount 进行自减。
     private final AtomicInteger referenceCount = new AtomicInteger(0);
 
+    ////HeaderExchangeClient
     private ExchangeClient client;
 
     public ReferenceCountExchangeClient(ExchangeClient client) {
@@ -78,6 +81,7 @@ final class ReferenceCountExchangeClient implements ExchangeClient {
 
     @Override
     public CompletableFuture<Object> request(Object request, int timeout) throws RemotingException {
+        // 调用 HeaderExchangeClient 的 request 方法
         return client.request(request, timeout);
     }
 
@@ -88,6 +92,7 @@ final class ReferenceCountExchangeClient implements ExchangeClient {
 
     @Override
     public CompletableFuture<Object> request(Object request, int timeout, ExecutorService executor) throws RemotingException {
+        //HeaderExchangeClient
         return client.request(request, timeout, executor);
     }
 

@@ -32,6 +32,8 @@ import java.util.List;
  * <a href="http://en.wikipedia.org/wiki/Load_balancing_(computing)">Load-Balancing</a>
  *
  * @see org.apache.dubbo.rpc.cluster.Cluster#join(Directory)
+ * 负载均衡 SPI 接口
+ * // 默认是 random=RandomLoadBalance
  */
 @SPI(RandomLoadBalance.NAME)
 public interface LoadBalance {
@@ -43,6 +45,7 @@ public interface LoadBalance {
      * @param url        refer url
      * @param invocation invocation.
      * @return selected invoker.
+     * 从 List<Invoker> 中选择一个 Invoker
      */
     @Adaptive("loadbalance")
     <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException;

@@ -38,7 +38,7 @@ public class ProviderApplication {
 
         ProtocolConfig protocolConfig=new ProtocolConfig();
         protocolConfig.setName("dubbo");
-        protocolConfig.setPort(20880);
+        protocolConfig.setPort(20881);
 
         DubboBootstrap bootstrap = DubboBootstrap.getInstance();
 

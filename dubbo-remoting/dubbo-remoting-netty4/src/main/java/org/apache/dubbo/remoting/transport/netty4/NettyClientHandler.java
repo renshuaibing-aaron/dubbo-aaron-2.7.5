@@ -77,9 +77,16 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         }
     }
 
+    /**
+     * consumer 响应数据解码完成之后，通过 这个方法 的 channelRead 方法将响应对象派发到线程池上
+     * @param ctx
+     * @param msg
+     * @throws Exception
+     */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
+        //AbstractPeer
         handler.received(channel, msg);
     }
 

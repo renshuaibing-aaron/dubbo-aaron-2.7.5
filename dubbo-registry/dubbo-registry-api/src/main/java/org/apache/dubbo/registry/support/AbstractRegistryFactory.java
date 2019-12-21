@@ -89,13 +89,17 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
 
     @Override
     public Registry getRegistry(URL url) {
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-api-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F172.19.5.49%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26bind.ip%3D172.19.5.49%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%2CsayHelloAsync%26pid%3D24216%26release%3D%26side%3Dprovider%26timestamp%3D1576062239385&pid=24216&timestamp=1576062239363
         url = URLBuilder.from(url)
                 .setPath(RegistryService.class.getName())
                 .addParameter(INTERFACE_KEY, RegistryService.class.getName())
                 .removeParameters(EXPORT_KEY, REFER_KEY)
                 .build();
+
+        //URL变化interface=com.alibaba.dubbo.demo.DemoService ->interface=com.alibaba.dubbo.registry.RegistryService
         String key = url.toServiceStringWithoutResolving();
         // Lock the registry access process to ensure a single instance of the registry
+        // 锁定注册中心获取过程，保证注册中心单一实例
         LOCK.lock();
         try {
             Registry registry = REGISTRIES.get(key);
@@ -103,10 +107,12 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
                 return registry;
             }
             //create registry by spi/ioc
+           // 之后调用ZookeeperRegistryFactory.createRegistry(URL url):
             registry = createRegistry(url);
             if (registry == null) {
                 throw new IllegalStateException("Can not create registry " + url);
             }
+            //放到缓存里面
             REGISTRIES.put(key, registry);
             return registry;
         } finally {

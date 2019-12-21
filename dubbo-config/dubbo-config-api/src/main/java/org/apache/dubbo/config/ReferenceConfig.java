@@ -129,10 +129,8 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             throw new IllegalStateException("The invoker of ReferenceConfig(" + url + ") has already destroyed!");
         }
 
-
         // 检测 代理对象ref 是否为空，为空则通过 init 方法创建
         if (ref == null) {
-
             // 用于处理配置，以及调用 createProxy 生成代理类
             init();
         }
@@ -164,6 +162,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
 
     /**
      * 配置加载
+     * 1）、收集各种配置信息，并将配置存储到 map 中
+     * 2）、主要用于解析服务消费者 ip
+     * 3）、创建接口代理类
+     * 4）、根据服务名构建 ConsumerModel，并将 ConsumerModel 存入到 ApplicationModel 的消费者集合map中
      */
     public synchronized void init() {
         // 如果已经初始化过，则结束
@@ -175,7 +177,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             bootstrap = DubboBootstrap.getInstance();
             bootstrap.init();
         }
-
+        // 检查本地存根配置合法性，主要检查本地存根类是否实现了接口类，以及检查带有参数who类型的本地存根类构造函数是否是接口类类型
         checkAndUpdateSubConfigs();
 
         //init serivceMetadata
@@ -192,12 +194,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         // mock合法性校验
         ConfigValidationUtils.checkMock(interfaceClass, this);
 
-        // 用来存放配置
+        // 用来存放配置 添加side、dubbo version、pid等参数到map中
         Map<String, String> map = new HashMap();
         // 存放这是消费者侧
         map.put(SIDE_KEY, CONSUMER_SIDE);
-
-
         //添加 协议版本、发布版本，时间戳 等信息到 map 中
         ReferenceConfigBase.appendRuntimeParameters(map);
 
@@ -263,15 +263,13 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
 
         // 获取服务消费者 ip 地址
         String hostToRegistry = ConfigUtils.getSystemProperty(DUBBO_IP_TO_REGISTRY);
-
         // 如果为空，则获取本地ip
         if (StringUtils.isEmpty(hostToRegistry)) {
             hostToRegistry = NetUtils.getLocalHost();
         } else if (isInvalidLocalHost(hostToRegistry)) {
             throw new IllegalArgumentException("Specified invalid registry ip from property:" + DUBBO_IP_TO_REGISTRY + ", value:" + hostToRegistry);
         }
-
-        // 设置消费者ip
+        // 设置消费者ip // 添加服务消费者ip参数到map
         map.put(REGISTER_IP_KEY, hostToRegistry);
 
         serviceMetadata.getAttachments().putAll(map);
@@ -286,15 +284,19 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 null,
                 serviceMetadata);
 
-        //创建动态代理  // 创建代理对象
+        // 创建接口代理类
         //{side=consumer, register.ip=172.19.5.49, release=, methods=sayHello,sayHelloAsync,
         // lazy=false, sticky=false, dubbo=2.0.2, pid=17284,
         // interface=org.apache.dubbo.demo.DemoService, timestamp=1575769816204}
         ref = createProxy(map);
 
+
+        // 获取消费者服务名,例如：org.apache.dubbo.demo.DemoService
         serviceMetadata.setTarget(ref);
         serviceMetadata.addAttribute(PROXY_CLASS_REF, ref);
-        repository.lookupReferredService(serviceMetadata.getServiceKey()).setProxyObject(ref);
+        String serviceKey = serviceMetadata.getServiceKey();
+        // 根据服务名，ReferenceConfig，代理类构建 ConsumerModel，并将 ConsumerModel 存入到 ApplicationModel 的消费者集合map中
+        repository.lookupReferredService(serviceKey).setProxyObject(ref);
 
 
         // 设置初始化标志为true
@@ -306,28 +308,40 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
 
     /**
      * 引用服务
-     *
+     *1.首先 ReferenceConfig 类的 init 方法调用 Protocol#refer 方法生成 Invoker 实例，这是服务消费的关键。
+     * 2.然后使用 JavassistProxyFactory#getProxy 生成接口（DemoService）的代理对象 ref
+     *1）、若是本地服务调用，则调用 InjvmProtocol 的 refer 方法生成 InjvmInvoker 实例
+     * 2）、配置了url参数，则将所有 url 做设置 path 或者 设置 refer 或者合并处理，最后添加到 urls 列表中
+     * 3）、没有配置url参数时，从 registries 参数中加载注册中心链接 url，url 做设置 refer 处理后添加到 urls 列表中
+     * 4）、urls 元素为1个时，直接调用 RegistryProtocol 的 refer 构建 Invoker 实例
+     * 5）、urls 元素大于1时，根据 url 协议头加载指定的 Protocol 实例，并调用实例的 refer 方法构建 Invoker 实例，最后通过 Cluster 合并多个 Invoker
+     * 6）、保存消费者的Metadata数据
+     * 7）、 调用 ProxyFactory 的 getproxy 方法创建服务代理类
      * @param map
      * @return
      */
     @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
     private T createProxy(Map<String, String> map) {
+        //{side=consumer, register.ip=172.19.5.49, release=, methods=sayHello,sayHelloAsync,
+        // lazy=false, sticky=false, dubbo=2.0.2, pid=17284,
+        // interface=org.apache.dubbo.demo.DemoService, timestamp=1575769816204}
+
 
         // 根据配置检查是否为本地调用
         if (shouldJvmRefer(map)) {
-            // 生成url，protocol使用的是injvm
+            // 生成本地引用 URL，协议为 injvm，ip 为 127.0.0.1，port 为 0
             URL url = new URL(LOCAL_PROTOCOL, LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
 
-            // 利用InjvmProtocol 的 refer 方法生成 InjvmInvoker 实例
+            // 先调用 AbstractProtocol 的 refer 方法，然后调用 InjvmProtocol 的 protocolBindingRefer 方法构建 InjvmInvoker 实例
             invoker = REF_PROTOCOL.refer(interfaceClass, url);
             if (logger.isInfoEnabled()) {
                 logger.info("Using injvm service " + interfaceClass.getName());
             }
         } else {
-
-            // 如果url不为空，则用户可能想进行直连来调用
+            // 远程服务引用
             urls.clear();
             if (url != null && url.length() > 0) {
+                // 如果url不为空，则用户可能想进行直连来调用
                 // user specified URL, could be peer-to-peer address, or register center's address.
                 // 当需要配置多个 url 时，可用分号进行分割，这里会进行切分
                 String[] us = SEMICOLON_SPLIT_PATTERN.split(url);
@@ -338,6 +352,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                         URL url = URL.valueOf(u);
                         if (StringUtils.isEmpty(url.getPath())) {
                             // 设置接口全限定名为 url 路径
+                            // 设置接口全限定名为 url 路径，例如：org.apache.dubbo.demo.DemoService
                             url = url.setPath(interfaceName);
                         }
                         // 检测 url 协议是否为 registry，若是，表明用户想使用指定的注册中心
@@ -354,8 +369,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 }
             } else { // assemble URL from register center's configuration
                 // if protocols not injvm checkRegistry
+                // protocols 非 injvm时，即
                 if (!LOCAL_PROTOCOL.equalsIgnoreCase(getProtocol())) {
                     // 校验注册中心
+                    // 检查 RegistryConfig 配置是否存在，并且将 registries 和 registryIds 转换为 RegistryConfig 对象
                     checkRegistry();
 
                     // 加载注册中心的url
@@ -384,19 +401,26 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             }
 
             // 如果只有一个注册中心，则直接调用refer方法
+            // 单个注册中心或服务提供者->服务直连
             if (urls.size() == 1) {
-                System.out.println("=========如果只有一个注册中心，则直接调用refer方法================");
                 // 调用 RegistryProtocol 的 refer 构建 Invoker 实例
                 Protocol refProtocol = REF_PROTOCOL;
-                System.out.println("=================="+refProtocol);
-                System.out.println("=====urls.get(0)============="+urls.get(0));
+                //服务引用第一步，有注册中心的情况下（最常用）会调用  RegistryProtocol#refer(Class<T> type, URL url) ，
+                // RegistryProtocol 实际上是其他具体 Protocol（eg. DubboProtocol）的 AOP 类
+
                 //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?
                 // application=dubbo-demo-api-consumer&dubbo=2.0.2&pid=22144&refer=dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D22144%26register.ip%3D172.19.5.49%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1575721905133&registry=zookeeper&timestamp=1575721905204
+
+                //extName="registry"。
+                //我们debug调试看调用栈可以看出整个调用过程，createProxy（ReferenceConfig） -> ref（ProtocolListenerWrapper）->
+                // ref（ProtocolFilterWrapper）-> ref（RegistryProtocol），最终调用到了 RegistryProtocol 的 ref 方法
                 invoker = refProtocol.refer(interfaceClass, urls.get(0));
             } else {
+                // 存在多个注册中心或者服务提供者
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null;
                 // 遍历所有的注册中心url
+                // 根据url获取所有的invoke
                 for (URL url : urls) {
 
                     // 通过 refprotocol 调用 refer 构建 Invoker，
@@ -426,7 +450,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 }
             }
         }
-        // 如果需要核对该服务是否可用，并且该服务不可用
+        // 检查invoker是否可用，即提供者服务是否可用
         if (shouldCheck() && !invoker.isAvailable()) {
             throw new IllegalStateException("Failed to check the status of the service "
                     + interfaceName
@@ -456,8 +480,12 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             // 把消费者配置加入到元数据中心中
             metadataService.publishServiceDefinition(consumerURL);
         }
+
+
         // create service proxy
-        // 创建服务代理
+        // 创建服务代理  ProxyFactory$Adaptive
+        //getProxy内部最终得到是一个被StubProxyFactoryWrapper包装后的JavassistProxyFactory
+        //最终得到的demoService是一个proxy0实例
         return (T) PROXY_FACTORY.getProxy(invoker);
     }
 
@@ -466,9 +494,12 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
      * Check each config modules are created properly and override their properties if necessary.
      */
     public void checkAndUpdateSubConfigs() {
+
+        // 检测接口名合法性
         if (StringUtils.isEmpty(interfaceName)) {
             throw new IllegalStateException("<dubbo:reference interface=\"\" /> interface not allow null!");
         }
+        // 完成application、module、registries、monitor配置信息填充
         completeCompoundConfigs();
         // get consumer's global configuration
         checkDefault();
@@ -487,8 +518,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             }
             checkInterfaceAndMethods(interfaceClass, getMethods());
         }
+        // 解析文件，获取接口名对应的配置信息赋值给 url 属性
         resolveFile();
         ConfigValidationUtils.validateReferenceConfig(this);
+        // 检查 metadataReport配置信息
         appendParameters();
     }
 

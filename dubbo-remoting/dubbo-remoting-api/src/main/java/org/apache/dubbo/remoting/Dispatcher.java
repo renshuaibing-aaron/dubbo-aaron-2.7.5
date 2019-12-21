@@ -22,6 +22,7 @@ import org.apache.dubbo.common.extension.SPI;
 import org.apache.dubbo.remoting.transport.dispatcher.all.AllDispatcher;
 
 /**
+ * 线程分发器
  * ChannelHandlerWrapper (SPI, Singleton, ThreadSafe)
  */
 @SPI(AllDispatcher.NAME)

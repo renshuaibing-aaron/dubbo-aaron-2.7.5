@@ -68,11 +68,22 @@ public class ZookeeperRegistry extends FailbackRegistry {
 
     private final Set<String> anyServices = new ConcurrentHashSet<>();
 
+
+    //
+    /**
+     * {
+     * consumer://10.10.10.10/com.alibaba.dubbo.demo.DemoService?application=demo-consumer&category=providers,configurators,routers&check=false&dubbo=2.0.0&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25267&side=consumer&timestamp=1510225913509
+     * =
+     * {RegistryDirectory实例=ZookeeperRegistry中的匿名内部类ChildListener实例}
+     * }
+     */
     private final ConcurrentMap<URL, ConcurrentMap<NotifyListener, ChildListener>> zkListeners = new ConcurrentHashMap<>();
 
     private final ZookeeperClient zkClient;
 
     public ZookeeperRegistry(URL url, ZookeeperTransporter zookeeperTransporter) {
+        //调用了ZookeeperRegistry的父类FailbackRegistry（启动失败处理器：注册失败／注销失败／订阅失败／反订阅失败／通知失败）
+        // 和AbstractRegistry（将信息写入properties文件，进行相应通知-这里没有url的订阅器，所以没做什么事）
         super(url);
         if (url.isAnyHost()) {
             throw new IllegalStateException("registry address == null");
@@ -81,8 +92,13 @@ public class ZookeeperRegistry extends FailbackRegistry {
         if (!group.startsWith(PATH_SEPARATOR)) {
             group = PATH_SEPARATOR + group;
         }
+        //连接zk
         this.root = group;
+        //获取ZkClient客户端
+        //该类中的extName是"curator"（我们在provider部分使用了curator）。之后执行ZkclientZookeeperTransporter.connect
         zkClient = zookeeperTransporter.connect(url);
+
+        //添加失败重连监听器
         zkClient.addStateListener((state) -> {
             if (state == StateListener.RECONNECTED) {
                 logger.warn("Trying to fetch the latest urls, in case there're provider changes during connection loss.\n" +
@@ -124,6 +140,9 @@ public class ZookeeperRegistry extends FailbackRegistry {
 
     @Override
     public void doRegister(URL url) {
+
+        //在zk上创建临时节点
+        ///dubbo/com.alibaba.dubbo.demo.DemoService/consumers/consumer://10.10.10.10/com.alibaba.dubbo.demo.DemoService?application=demo-consumer&category=consumers&check=false&dubbo=2.0.0&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25267&side=consumer&timestamp=1510225913509
         try {
             zkClient.create(toUrlPath(url), url.getParameter(DYNAMIC_KEY, true));
         } catch (Throwable e) {
@@ -143,7 +162,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
 
-        System.out.println("=================ZookeeperRegistry#doSubscribe==========");
+        System.out.println("==========订阅数据=======ZookeeperRegistry#doSubscribe==========");
         try {
             if (ANY_VALUE.equals(url.getServiceInterface())) {
                 String root = toRootPath();
@@ -178,6 +197,12 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 }
             } else {
                 List<URL> urls = new ArrayList<>();
+      /*
+      * /dubbo/com.alibaba.dubbo.demo.DemoService/providers
+        /dubbo/com.alibaba.dubbo.demo.DemoService/configurators
+        /dubbo/com.alibaba.dubbo.demo.DemoService/routers
+      *
+      * */
                 for (String path : toCategoriesPath(url)) {
                     ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
                     if (listeners == null) {
@@ -195,6 +220,23 @@ public class ZookeeperRegistry extends FailbackRegistry {
                         urls.addAll(toUrlsWithEmpty(url, path, children));
                     }
                 }
+                //{
+                //consumer://10.10.10.10/com.alibaba.dubbo.demo.DemoService?application=demo-consumer&category=providers,configurators,routers&check=false&dubbo=2.0.0&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25267&side=consumer&timestamp=1510225913509
+                //=
+                //{RegistryDirectory实例=ZookeeperRegistry中的匿名内部类ChildListener实例}
+                //}
+
+               // List<URL> urls
+              //  dubbo://10.211.55.5:20880/com.alibaba.dubbo.demo.DemoService?anyhost=true&application=demo-provider&dubbo=2.5.7&generic=false&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=318&revision=2.5.7&side=provider&timestamp=1510225244315,
+
+             //   dubbo://10.10.10.10:20880/com.alibaba.dubbo.demo.DemoService?anyhost=true&application=demo-provider&dubbo=2.0.0&generic=false&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25215&side=provider&timestamp=1510225334486,
+
+              //  empty://10.10.10.10/com.alibaba.dubbo.demo.DemoService?application=demo-consumer&category=configurators&check=false&dubbo=2.0.0&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25267&side=consumer&timestamp=1510225913509,
+
+               // empty://10.10.10.10/com.alibaba.dubbo.demo.DemoService?application=demo-consumer&category=routers&check=false&dubbo=2.0.0&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=25267&side=consumer&timestamp=1510225913509
+
+                //注意：前边两个元素是在执行List<String> children = zkClient.addChildListener(path, zkListener)代码时，会返回当前path下的节点（实际上就是第一次服务发现）。
+                //之后一路执行到AbstractRegistry.notify(URL url, NotifyListener listener, List<URL> urls)
                 notify(url, listener, urls);
             }
         } catch (Throwable e) {

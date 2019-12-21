@@ -30,6 +30,7 @@ public class Hessian2ObjectOutput implements ObjectOutput {
     private final Hessian2Output mH2o;
 
     public Hessian2ObjectOutput(OutputStream os) {
+        System.out.println("=====序列化====================");
         mH2o = new Hessian2Output(os);
         mH2o.setSerializerFactory(Hessian2SerializerFactory.SERIALIZER_FACTORY);
     }

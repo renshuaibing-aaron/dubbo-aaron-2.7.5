@@ -43,9 +43,14 @@ import static org.springframework.beans.factory.BeanFactoryUtils.beansOfTypeIncl
  */
 public class DubboLifecycleComponentApplicationListener implements ApplicationListener {
 
+    /**
+     * 什么时候进行监听器
+     * @param event
+     */
     @Override
     public void onApplicationEvent(ApplicationEvent event) {
 
+        System.out.println("====onApplicationEvent 刷新情况===================");
         if (!supportsEvent(event)) {
             return;
         }
@@ -63,6 +68,7 @@ public class DubboLifecycleComponentApplicationListener implements ApplicationLi
         if (bootstrap == null) {
             bootstrap = DubboBootstrap.getInstance();
         }
+        System.out.println("=========监听器导出服务===========");
         bootstrap.start();
     }
 

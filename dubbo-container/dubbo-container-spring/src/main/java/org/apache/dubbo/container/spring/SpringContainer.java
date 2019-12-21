@@ -42,10 +42,15 @@ public class SpringContainer implements Container {
 
     @Override
     public void start() {
+
+        // 加载 dubbo.spring.config 配置路径下的所有文件
         String configPath = ConfigUtils.getProperty(SPRING_CONFIG);
         if (StringUtils.isEmpty(configPath)) {
+
+            // 默认加载 classpath*:META-INF/spring/*.xml 路径下的所有文件
             configPath = DEFAULT_SPRING_CONFIG;
         }
+        // spring 加载bean
         context = new ClassPathXmlApplicationContext(configPath.split("[,\\s]+"), false);
         context.refresh();
         context.start();

@@ -30,6 +30,7 @@ import java.util.List;
 
 /**
  * StaticDirectory
+ * StaticDirectory 即静态服务目录，顾名思义，它内部存放的 Invoker 是不会变动的。所以，理论上它和不可变 List 的功能很相似
  */
 public class StaticDirectory<T> extends AbstractDirectory<T> {
     private static final Logger logger = LoggerFactory.getLogger(StaticDirectory.class);
@@ -58,6 +59,7 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
 
     @Override
     public Class<T> getInterface() {
+        // 获取接口类
         return invokers.get(0).getInterface();
     }
 
@@ -72,6 +74,7 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
             return false;
         }
         for (Invoker<T> invoker : invokers) {
+            // 只要有一个 invoker 可用，就认为当前 directory 是可用的
             if (invoker.isAvailable()) {
                 return true;
             }

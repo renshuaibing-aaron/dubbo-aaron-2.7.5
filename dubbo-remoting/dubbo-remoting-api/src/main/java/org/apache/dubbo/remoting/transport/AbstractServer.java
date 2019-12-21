@@ -57,17 +57,24 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
 
     public AbstractServer(URL url, ChannelHandler handler) throws RemotingException {
         super(url, handler);
+        // 获取地址，例如：/192.168.1.247:20887
         localAddress = getUrl().toInetSocketAddress();
-
+        // 获取ip和端口，例如：ip：192.168.1.247，port：20887
         String bindIp = getUrl().getParameter(Constants.BIND_IP_KEY, getUrl().getHost());
         int bindPort = getUrl().getParameter(Constants.BIND_PORT_KEY, getUrl().getPort());
+
         if (url.getParameter(ANYHOST_KEY, false) || NetUtils.isInvalidLocalHost(bindIp)) {
+            // 如果url中的anyhost为true 或者 ip是本机地址，则 ip 赋值为 0.0.0.0
             bindIp = ANYHOST_VALUE;
         }
         bindAddress = new InetSocketAddress(bindIp, bindPort);
+        // 获取最大可接受连接数，默认是0
         this.accepts = url.getParameter(ACCEPTS_KEY, DEFAULT_ACCEPTS);
+
+        // 获取空闲超时时间，默认是600000，即600s
         this.idleTimeout = url.getParameter(IDLE_TIMEOUT_KEY, DEFAULT_IDLE_TIMEOUT);
         try {
+            // 调用模板方法启动服务
             doOpen();
             if (logger.isInfoEnabled()) {
                 logger.info("Start " + getClass().getSimpleName() + " bind " + getBindAddress() + ", export " + getLocalAddress());
