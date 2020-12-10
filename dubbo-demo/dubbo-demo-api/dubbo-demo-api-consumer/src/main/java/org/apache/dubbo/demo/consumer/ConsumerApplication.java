@@ -1,45 +1,29 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
 package org.apache.dubbo.demo.consumer;
 
 import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.ReferenceConfig;
 import org.apache.dubbo.config.RegistryConfig;
 import org.apache.dubbo.config.bootstrap.DubboBootstrap;
-import org.apache.dubbo.config.utils.ReferenceConfigCache;
 import org.apache.dubbo.demo.DemoService;
 
 /**
  * @author renshuaibing
  */
-public class ConsumerApplication
-{
+public class ConsumerApplication {
 
     /**
      * 配置加载
      * 创建invoker
      * 创建服务接口代理类
+     *
      * @param args
      */
     public static void main(String[] args) {
         ReferenceConfig<DemoService> reference = new ReferenceConfig<>();
         reference.setInterface(DemoService.class);
+        reference.setLoadbalance("roundrobin");
+        reference.setScope("remote");
+        reference.setProxy("javassist");
 
 
         RegistryConfig registryConfig = new RegistryConfig("zookeeper://127.0.0.1:2181");
@@ -54,16 +38,16 @@ public class ConsumerApplication
 
         DemoService demoService = reference.get();
         //利用缓存
-       // DemoService demoService = ReferenceConfigCache.getCache().get(reference);
+        // DemoService demoService = ReferenceConfigCache.getCache().get(reference);
 
 
         //利用上一行代码的代理对象执行 方法
         //proxy0.sayHello(String paramString)
-       String message = demoService.sayHello("dubbo");
+        String message = demoService.sayHello("dubbo");
 
 
         System.out.println("===========获取信息=================");
-       System.out.println(message);
+        System.out.println(message);
     }
     /**
      * 在服务引用过程中需要进行配置检查和信息收集工作，根据收集到的信息决定服务引用的具体方式，服务引用有以下三种方式：

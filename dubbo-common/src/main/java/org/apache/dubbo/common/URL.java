@@ -1,19 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.dubbo.common;
 
 import org.apache.dubbo.common.config.Configuration;
@@ -56,6 +40,18 @@ import static org.apache.dubbo.common.constants.CommonConstants.USERNAME_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 
 /**
+ * todo 统一资源定位符, 它是不可变的, 也是线程安全的  也可以理解为dubbo的消息总线
+       # 描述 Dubbo 协议的服务
+      Dubbo://192.168.1.6:20880/moe.cnkirito.sample.HelloService?timeout=3000
+      # 描述 zookeeper 注册中心
+      zookeeper://127.0.0.1:2181/org.apache.Dubbo.registry.RegistryService?application=demo-consumer&Dubbo=2.0.2&interface=org.apache.Dubbo.registry.RegistryService&pid=1214&qos.port=33333&timestamp=1545721981946
+      # 描述消费者 服务
+     consumer://30.5.120.217/org.apache.Dubbo.demo.DemoService?application=demo-consumer&category=consumers&check=false&Dubbo=2.0.2&interface=org.apache.Dubbo.demo.DemoService&methods=sayHello&pid=1209&qos.port=33333&side=consumer&timestamp=1545721827784
+      # for this case, url protocol = null, url host = 192.168.1.3, port = 20880, url path = null
+     192.168.1.3:20880
+      # for this case, url protocol = file, url host = null, url path = home/user1/router.js
+      file:///home/user1/router.js?type=script
+
  * URL - Uniform Resource Locator (Immutable, ThreadSafe)
  * <p>
  * url example:
@@ -87,8 +83,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
  * @see java.net.URL
  * @see java.net.URI
  */
-public /*final**/
-class URL implements Serializable {
+public /*final**/  class URL implements Serializable {
 
     private static final long serialVersionUID = -1985165475234910535L;
 

@@ -691,6 +691,7 @@ public class DubboBootstrap extends GenericEventListener {
      * Start the bootstrap
      */
     public DubboBootstrap start() {
+        System.out.println("========DubboBootstrap#start=================");
         if (started.compareAndSet(false, true)) {
             initialize();
             if (logger.isInfoEnabled()) {

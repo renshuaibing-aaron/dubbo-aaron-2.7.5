@@ -1,19 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.dubbo.common.extension;
 
 import org.apache.dubbo.common.URL;
@@ -70,8 +54,12 @@ public class ExtensionLoader<T> {
     /** 2. META-INF/dubbo/ 是第三方SPI文件的存放目录 */
     private static final String DUBBO_DIRECTORY = "META-INF/dubbo/";
 
-    /** 3. META-INF/dubbo/internal/ 是Dubbo内部SPI文件的存放目录 */
+    /** 3. META-INF/dubbo/internal/ 是Dubbo内部SPI文件的存放目录  ,这个是最终jar包中存放spi文件的位置*/
     private static final String DUBBO_INTERNAL_DIRECTORY = DUBBO_DIRECTORY + "internal/";
+
+
+
+
 
     private static final Pattern NAME_SEPARATOR = Pattern.compile("\\s*[,]+\\s*");
 
@@ -129,6 +117,9 @@ public class ExtensionLoader<T> {
     private Map<String, IllegalStateException> exceptions = new ConcurrentHashMap<>();
 
 
+
+
+
     //单例模式中，最典型的实现就是通过私有构造方法实现的：
     private ExtensionLoader(Class<?> type) {
         this.type = type;
@@ -136,7 +127,9 @@ public class ExtensionLoader<T> {
         if (type == ExtensionFactory.class) {
             objectFactory = null;
         } else {
-            objectFactory = ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension();
+            ExtensionLoader<ExtensionFactory> extensionLoader = ExtensionLoader.getExtensionLoader(ExtensionFactory.class);
+            //这里什么意思？？
+            objectFactory = extensionLoader.getAdaptiveExtension();
         }
     }
 
@@ -577,6 +570,7 @@ public class ExtensionLoader<T> {
         }
     }
 
+    //此时注意 这个是第二个ExtensionLoader<ExtensionFactory>
     @SuppressWarnings("unchecked")
     public T getAdaptiveExtension() {
         Object instance = cachedAdaptiveInstance.get();
@@ -1087,12 +1081,18 @@ public class ExtensionLoader<T> {
     private T createAdaptiveExtension() {
         try {
 
-            //这里把代码进行了拆分
-            //injectExtension进入IOC的反转控制模式，实现了动态入注
+            /*
+              //从dubbo-spi配置文件中获取AdaptiveExtensionClass
+              --getExtensionClasses()
+                --loadExtensionClasses()
+              --loadFile(Map<String, Class<?>> extensionClasses, String dir)
+              //创建动态代理类
+              --createAdaptiveExtensionClass()*/
             Class<?> adaptiveExtensionClass = getAdaptiveExtensionClass();
 
             Object o = adaptiveExtensionClass.newInstance();
 
+            //injectExtension进入IOC的反转控制模式，实现了动态入注
             return injectExtension((T) o);
         } catch (Exception e) {
             throw new IllegalStateException("Can't create adaptive extension " + type + ", cause: " + e.getMessage(), e);
@@ -1100,7 +1100,9 @@ public class ExtensionLoader<T> {
     }
 
     /**
-     * 生成了动态类
+     * 获取ExtensionClasses和适配类
+     * 如果实现类上带有@Adaptive注解，直接创建修饰类
+     * 如果方法上带有@Adaptive注解，动态生成代理类
      * @return
      */
     private Class<?> getAdaptiveExtensionClass() {
@@ -1128,12 +1130,11 @@ public class ExtensionLoader<T> {
         System.out.println(cachedDefaultName);
 
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
-        System.out.println("/r/n");
-        System.out.println("/r/n");
+        System.out.println("\r\n");
+        System.out.println("****************************");
         System.out.println(code);
-
-        System.out.println("/r/n");
-        System.out.println("/r/n");
+        System.out.println("****************************");
+        System.out.println("\r\n");
         ClassLoader classLoader = findClassLoader();
         org.apache.dubbo.common.compiler.Compiler compiler = ExtensionLoader.getExtensionLoader(org.apache.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();
         return compiler.compile(code, classLoader);

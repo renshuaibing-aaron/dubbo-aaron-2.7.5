@@ -8,6 +8,7 @@ public class TestBasic {
     public static void main(String[] args) {
         ExtensionLoader<Log> loader = ExtensionLoader.getExtensionLoader(Log.class);
 
+
         // 1. 指定名称获取具体 SPI 实现类
         Log logback = loader.getExtension("logback");
         logback.execute(); // this is logback!

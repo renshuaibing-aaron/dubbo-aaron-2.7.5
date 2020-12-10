@@ -36,6 +36,8 @@
         <module>dubbo-demo-annotation</module>
         <module>dubbo-demo-api</module>
         <module>dubbo-aaron-test</module>
+        <module>dubbo-demo-http</module>
+        <module>dubbo-demo-rest</module>
         <!--        <module>dubbo-demo-servicediscovery-xml</module>-->
         <!--        <module>servicediscovery-transfer</module>-->
         <!--        <module>dubbo-call-sc</module>-->

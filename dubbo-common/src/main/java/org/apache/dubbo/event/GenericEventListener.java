@@ -75,6 +75,7 @@ public abstract class GenericEventListener implements EventListener<Event> {
     }
 
     public final void onEvent(Event event) {
+        System.out.println("=====GenericEventListener#onEvent==================");
         Class<?> eventClass = event.getClass();
         handleEventMethods.getOrDefault(eventClass, emptySet()).forEach(method -> {
             ThrowableConsumer.execute(method, m -> {
